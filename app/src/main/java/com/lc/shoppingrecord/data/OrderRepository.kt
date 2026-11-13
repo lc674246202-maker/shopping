@@ -65,9 +65,11 @@ class OrderRepository(private val databaseHelper: ShoppingDatabaseHelper) {
             if (listOfNotNull(item.originalAmountCents, item.paidAmountCents).any { it < 0 }) {
                 return "第${index + 1}条商品金额不能为负数"
             }
-            item.saleQuantity?.toBigDecimalOrNull()?.let {
-                if (it <= BigDecimal.ZERO) return "第${index + 1}条购买数量必须大于0"
-            } ?: if (item.saleQuantity != null) return "第${index + 1}条购买数量格式无效"
+            item.saleQuantity?.let { rawQuantity ->
+                val quantity = rawQuantity.toBigDecimalOrNull()
+                    ?: return "第${index + 1}条购买数量格式无效"
+                if (quantity <= BigDecimal.ZERO) return "第${index + 1}条购买数量必须大于0"
+            }
         }
         return null
     }

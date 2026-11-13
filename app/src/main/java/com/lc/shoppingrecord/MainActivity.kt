@@ -339,15 +339,12 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun exportZip(uri: Uri) = ioExecutor.execute {
-        val success: Boolean
-        val message = try {
+        val (success, message) = try {
             contentResolver.openOutputStream(uri, "w")?.use(migrationManager::exportZip)
                 ?: error("无法创建导出文件")
-            success = true
-            "完整迁移包已导出"
+            true to "完整迁移包已导出"
         } catch (error: Exception) {
-            success = false
-            "迁移包导出失败：${error.message ?: "未知错误"}"
+            false to "迁移包导出失败：${error.message ?: "未知错误"}"
         }
         runOnUiThread {
             if (success) settingsController.markZipExported()
@@ -367,14 +364,11 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun restoreImport(prepared: PreparedImport) = ioExecutor.execute {
-        val success: Boolean
-        val message = try {
+        val (success, message) = try {
             migrationManager.importPrepared(prepared)
-            success = true
-            "迁移数据恢复完成"
+            true to "迁移数据恢复完成"
         } catch (error: Exception) {
-            success = false
-            "恢复失败，现有数据未被修改：${error.message}"
+            false to "恢复失败，现有数据未被修改：${error.message}"
         }
         runOnUiThread {
             if (success) {
