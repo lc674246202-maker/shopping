@@ -87,7 +87,9 @@ class InlineRecognitionReviewTests(unittest.TestCase):
         item = ET.parse(RES_ROOT / "layout/item_recognition_review.xml").getroot()
         edit_ids = {
             node.attrib[f"{ANDROID_NS}id"]
-            for node in item.iter("EditText")
+            for node in item.iter()
+            if node.tag in {"EditText", "AutoCompleteTextView"}
+            and f"{ANDROID_NS}id" in node.attrib
         }
         self.assertEqual(
             {
@@ -122,7 +124,12 @@ class InlineRecognitionReviewTests(unittest.TestCase):
     def test_human_values_are_read_back_before_save(self) -> None:
         self.assertIn("repository.saveConfirmedOrder(draft)", self.controller)
         self.assertIn('priceSource = "user_confirmed"', self.controller)
-        self.assertIn("original.copy(", self.controller)
+        self.assertIn("source.copy(", self.controller)
+
+    def test_manual_entry_uses_local_history_autocomplete(self) -> None:
+        self.assertIn("listHistoricalProductNames()", self.controller)
+        self.assertIn("findRecentItemTemplate(name)", self.controller)
+        self.assertIn("已从历史记录自动填充", self.controller)
 
 
 if __name__ == "__main__":

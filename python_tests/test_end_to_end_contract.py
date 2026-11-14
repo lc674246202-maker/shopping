@@ -33,7 +33,7 @@ class RecognitionReachabilityTests(unittest.TestCase):
         self.assertIn("recognitionCoordinator.start(taskId", self.activity)
         self.assertIn("handleRecognitionOutcome", self.activity)
         self.assertIn("showRecognitionResult(next)", self.activity)
-        self.assertIn("reviewController.show(draft)", self.activity)
+        self.assertIn("reviewController.show(draft, manual = false)", self.activity)
 
     def test_multi_order_results_are_confirmed_one_by_one(self) -> None:
         self.assertIn("pendingRecognitionDrafts.addAll", self.activity)

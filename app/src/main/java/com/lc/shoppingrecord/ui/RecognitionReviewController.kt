@@ -7,6 +7,8 @@ import android.text.TextWatcher
 import android.view.LayoutInflater
 import android.view.View
 import android.widget.EditText
+import android.widget.ArrayAdapter
+import android.widget.AutoCompleteTextView
 import android.widget.LinearLayout
 import android.widget.TextView
 import android.widget.Toast
@@ -40,8 +42,13 @@ class RecognitionReviewController(
         )
     }
 
-    fun show(draft: ConfirmedOrderDraft) {
+    fun show(draft: ConfirmedOrderDraft, manual: Boolean = false) {
         currentDraft = draft
+        activity.findViewById<TextView>(R.id.reviewBanner).text = if (manual) {
+            "手动填写购物信息；输入已有商品名称可自动带出最近一次购买信息，所有字段仍可修改。"
+        } else {
+            activity.getString(R.string.review_banner)
+        }
         activity.findViewById<EditText>(R.id.reviewPlatform).setText(draft.platform)
         activity.findViewById<EditText>(R.id.reviewStore).setText(draft.storeName.orEmpty())
         activity.findViewById<EditText>(R.id.reviewOrderNumber).setText(draft.externalOrderNo.orEmpty())
@@ -145,10 +152,13 @@ class RecognitionReviewController(
     private fun textOrNull(id: Int): String? = activity.findViewById<EditText>(id)
         .text.toString().trim().takeIf { it.isNotEmpty() }
 
-    private inner class ItemBinding(view: View, private val original: ConfirmedOrderItemDraft) {
+    private inner class ItemBinding(view: View, original: ConfirmedOrderItemDraft) {
+        private var source = original
+        private var applyingHistory = false
+        private var lastPrefilledName: String? = null
         val title: TextView = view.findViewById(R.id.itemTitle)
         private val status: TextView = view.findViewById(R.id.itemRecognitionStatus)
-        private val productName: EditText = view.findViewById(R.id.itemProductName)
+        private val productName: AutoCompleteTextView = view.findViewById(R.id.itemProductName)
         private val rawSpecification: EditText = view.findViewById(R.id.itemRawSpecification)
         private val contentPerInner: EditText = view.findViewById(R.id.itemContentPerInner)
         private val contentUnit: EditText = view.findViewById(R.id.itemContentUnit)
@@ -160,8 +170,23 @@ class RecognitionReviewController(
         private val packagePrice: TextView = view.findViewById(R.id.itemPackagePrice)
         private val standardPrice: TextView = view.findViewById(R.id.itemStandardPrice)
 
+        init {
+            productName.threshold = 1
+            productName.setAdapter(
+                ArrayAdapter(
+                    activity,
+                    android.R.layout.simple_dropdown_item_1line,
+                    repository.listHistoricalProductNames()
+                )
+            )
+            productName.setOnItemClickListener { _, _, _, _ -> prefillFromHistory() }
+            productName.addTextChangedListener(simpleTextWatcher(::prefillFromHistory))
+        }
+
         fun fill(item: ConfirmedOrderItemDraft) {
-            productName.setText(item.rawProductName)
+            applyingHistory = true
+            source = item
+            productName.setText(item.rawProductName, false)
             rawSpecification.setText(item.rawSpecification.orEmpty())
             contentPerInner.setText(item.contentPerInner.orEmpty())
             contentUnit.setText(item.contentUnit.orEmpty())
@@ -170,6 +195,7 @@ class RecognitionReviewController(
             purchaseQuantity.setText(item.saleQuantity.orEmpty())
             saleUnit.setText(item.saleUnit.orEmpty())
             paidAmount.setText(centsToYuan(item.paidAmountCents))
+            applyingHistory = false
             listOf(
                 rawSpecification,
                 contentPerInner,
@@ -180,6 +206,19 @@ class RecognitionReviewController(
                 saleUnit,
                 paidAmount
             ).forEach { it.hint = activity.getString(R.string.unknown_field_hint) }
+        }
+
+        private fun prefillFromHistory() {
+            if (applyingHistory) return
+            val name = productName.text.toString().trim()
+            if (name.isEmpty() || name.equals(lastPrefilledName, ignoreCase = true)) return
+            val template = repository.findRecentItemTemplate(name) ?: return
+            lastPrefilledName = name
+            fill(template.copy(rawProductName = name))
+            status.text = "已从历史记录自动填充，可继续修改"
+            status.setTextColor(activity.getColor(R.color.green))
+            updatePrices()
+            updateReconciliation()
         }
 
         fun watchPriceInputs() {
@@ -248,7 +287,7 @@ class RecognitionReviewController(
             }
             val specification = readSpecification()
             val normalized = specification?.let(MeasurementNormalizer::normalize)
-            return original.copy(
+            return source.copy(
                 rawProductName = name,
                 rawSpecification = rawSpecification.text.toString().trim().takeIf(String::isNotEmpty),
                 contentPerInner = contentPerInner.text.toString().trim().takeIf(String::isNotEmpty),

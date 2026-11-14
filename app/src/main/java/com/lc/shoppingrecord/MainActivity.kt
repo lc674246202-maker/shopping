@@ -29,6 +29,7 @@ import com.lc.shoppingrecord.data.OrderRepository
 import com.lc.shoppingrecord.data.RecordsRepository
 import com.lc.shoppingrecord.data.ShoppingDatabaseHelper
 import com.lc.shoppingrecord.model.ConfirmedOrderDraft
+import com.lc.shoppingrecord.model.ConfirmedOrderItemDraft
 import com.lc.shoppingrecord.security.ApiKeyStore
 import com.lc.shoppingrecord.transfer.MigrationManager
 import com.lc.shoppingrecord.transfer.PreparedImport
@@ -148,6 +149,7 @@ class MainActivity : ComponentActivity() {
             )
         }
         findViewById<View>(R.id.startRecognitionButton).setOnClickListener { requestRecognition() }
+        findViewById<View>(R.id.manualEntryButton).setOnClickListener { startManualEntry() }
         findViewById<View>(R.id.cancelRecognitionButton).setOnClickListener {
             recognitionCoordinator.cancel()
         }
@@ -199,6 +201,19 @@ class MainActivity : ComponentActivity() {
         } else {
             startRecognition()
         }
+    }
+
+    private fun startManualEntry() {
+        pendingRecognitionDrafts.clear()
+        confirmedDraftCount = 0
+        showPage(PAGE_RECOGNIZE)
+        reviewController.show(
+            ConfirmedOrderDraft(
+                platform = "未知",
+                items = listOf(ConfirmedOrderItemDraft(rawProductName = ""))
+            ),
+            manual = true
+        )
     }
 
     private fun restoreActiveTaskIfNeeded() {
@@ -279,7 +294,7 @@ class MainActivity : ComponentActivity() {
 
     private fun showRecognitionResult(draft: ConfirmedOrderDraft) {
         showPage(PAGE_RECOGNIZE)
-        reviewController.show(draft)
+        reviewController.show(draft, manual = false)
     }
 
     private fun onConfirmedOrderSaved() {

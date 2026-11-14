@@ -11,6 +11,63 @@ import java.time.Instant
 import java.util.UUID
 
 class OrderRepository(private val databaseHelper: ShoppingDatabaseHelper) {
+    fun listHistoricalProductNames(): List<String> {
+        val sql = """
+            SELECT COALESCE(NULLIF(TRIM(p.display_name),''),NULLIF(TRIM(i.raw_product_name),'')) AS name
+            FROM order_items i LEFT JOIN products p ON p.product_id=i.product_id
+            WHERE COALESCE(NULLIF(TRIM(p.display_name),''),NULLIF(TRIM(i.raw_product_name),'')) IS NOT NULL
+            GROUP BY LOWER(name)
+            ORDER BY MAX(i.created_at) DESC
+            LIMIT 100
+        """.trimIndent()
+        return databaseHelper.readableDatabase.rawQuery(sql, null).use { cursor ->
+            buildList { while (cursor.moveToNext()) add(cursor.getString(0)) }
+        }
+    }
+
+    fun findRecentItemTemplate(name: String): ConfirmedOrderItemDraft? {
+        if (name.isBlank()) return null
+        val sql = """
+            SELECT i.product_id,i.sku_id,i.raw_product_name,i.raw_specification,
+                   i.sale_quantity,i.sale_unit,i.original_amount_cents,i.paid_amount_cents,
+                   i.specification_snapshot_json,p.standard_name,p.brand,p.category
+            FROM order_items i
+            JOIN orders o ON o.order_id=i.order_id
+            LEFT JOIN products p ON p.product_id=i.product_id
+            WHERE LOWER(TRIM(i.raw_product_name))=LOWER(TRIM(?))
+               OR LOWER(TRIM(COALESCE(p.display_name,'')))=LOWER(TRIM(?))
+               OR LOWER(TRIM(COALESCE(p.standard_name,'')))=LOWER(TRIM(?))
+            ORDER BY CASE WHEN COALESCE(o.paid_date,o.order_date) IS NULL THEN 1 ELSE 0 END,
+                     COALESCE(o.paid_date,o.order_date) DESC,i.created_at DESC
+            LIMIT 1
+        """.trimIndent()
+        return databaseHelper.readableDatabase.rawQuery(sql, arrayOf(name, name, name)).use { cursor ->
+            if (!cursor.moveToFirst()) return null
+            val snapshot = cursor.stringOrNull(8)?.let { runCatching { JSONObject(it) }.getOrNull() }
+            ConfirmedOrderItemDraft(
+                productId = cursor.stringOrNull(0),
+                skuId = cursor.stringOrNull(1),
+                standardName = cursor.stringOrNull(9),
+                brand = cursor.stringOrNull(10),
+                category = cursor.stringOrNull(11),
+                rawProductName = cursor.stringOrNull(2)?.takeIf(String::isNotBlank) ?: name,
+                rawSpecification = cursor.stringOrNull(3),
+                measurementType = snapshot.stringOrNull("measurement_type"),
+                contentPerInner = snapshot.stringOrNull("content_per_inner"),
+                contentUnit = snapshot.stringOrNull("content_unit"),
+                baseUnit = snapshot.stringOrNull("base_unit"),
+                baseQuantityPerSaleUnit = snapshot.stringOrNull("base_quantity_per_sale_unit"),
+                saleQuantity = cursor.stringOrNull(4),
+                saleUnit = cursor.stringOrNull(5),
+                innerUnit = snapshot.stringOrNull("inner_unit"),
+                innerCountPerSaleUnit = snapshot.stringOrNull("inner_count_per_sale_unit"),
+                originalAmountCents = cursor.longOrNull(6),
+                paidAmountCents = cursor.longOrNull(7),
+                priceSource = "history_prefill"
+            )
+        }
+    }
+
     fun saveConfirmedOrder(
         draft: ConfirmedOrderDraft,
         allowPossibleDuplicate: Boolean = false
@@ -250,5 +307,16 @@ class OrderRepository(private val databaseHelper: ShoppingDatabaseHelper) {
         put("inner_unit", item.innerUnit ?: JSONObject.NULL)
         put("inner_count_per_sale_unit", item.innerCountPerSaleUnit ?: JSONObject.NULL)
         put("source", "user_confirmed")
+    }
+
+    private fun android.database.Cursor.stringOrNull(index: Int): String? =
+        if (isNull(index)) null else getString(index)
+
+    private fun android.database.Cursor.longOrNull(index: Int): Long? =
+        if (isNull(index)) null else getLong(index)
+
+    private fun JSONObject?.stringOrNull(key: String): String? {
+        if (this == null || !has(key) || isNull(key)) return null
+        return optString(key).takeIf { it.isNotBlank() && it != "null" }
     }
 }

@@ -74,6 +74,15 @@
                 android:textColor="@android:color/white"
                 android:textSize="15sp"
                 android:textStyle="bold" />
+
+            <Button
+                android:id="@+id/manualEntryButton"
+                android:layout_width="match_parent"
+                android:layout_height="52dp"
+                android:layout_marginTop="10dp"
+                android:text="手动添加购物记录"
+                android:textAllCaps="false"
+                android:textSize="15sp" />
         </LinearLayout>
 
         <TextView
@@ -170,6 +179,7 @@
             android:visibility="gone">
 
             <TextView
+                android:id="@+id/reviewBanner"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:background="@drawable/soft_square"
@@ -194,6 +204,13 @@
                 android:background="@drawable/card_background"
                 android:orientation="vertical">
 
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="平台"
+                    android:textColor="@color/muted"
+                    android:textSize="12sp" />
+
                 <EditText
                     android:id="@+id/reviewPlatform"
                     android:layout_width="match_parent"
@@ -201,6 +218,13 @@
                     android:hint="@string/platform_label"
                     android:inputType="text"
                     android:minHeight="48dp" />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="店铺"
+                    android:textColor="@color/muted"
+                    android:textSize="12sp" />
 
                 <EditText
                     android:id="@+id/reviewStore"
@@ -210,6 +234,13 @@
                     android:inputType="text"
                     android:minHeight="48dp" />
 
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="订单号"
+                    android:textColor="@color/muted"
+                    android:textSize="12sp" />
+
                 <EditText
                     android:id="@+id/reviewOrderNumber"
                     android:layout_width="match_parent"
@@ -218,6 +249,13 @@
                     android:inputType="text"
                     android:minHeight="48dp" />
 
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="付款日期"
+                    android:textColor="@color/muted"
+                    android:textSize="12sp" />
+
                 <EditText
                     android:id="@+id/reviewPaidDate"
                     android:layout_width="match_parent"
@@ -225,6 +263,13 @@
                     android:hint="@string/paid_date_label"
                     android:inputType="text"
                     android:minHeight="48dp" />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="整单实付金额（元）"
+                    android:textColor="@color/muted"
+                    android:textSize="12sp" />
 
                 <EditText
                     android:id="@+id/reviewOrderPaid"

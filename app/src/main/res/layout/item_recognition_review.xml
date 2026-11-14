@@ -22,14 +22,28 @@
         android:textColor="@color/green"
         android:textSize="12sp" />
 
-    <EditText
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="10dp"
+        android:text="商品名称"
+        android:textColor="@color/muted"
+        android:textSize="12sp" />
+
+    <AutoCompleteTextView
         android:id="@+id/itemProductName"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_marginTop="10dp"
         android:hint="@string/product_name_label"
         android:inputType="text"
         android:minHeight="48dp" />
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="规格型号"
+        android:textColor="@color/muted"
+        android:textSize="12sp" />
 
     <EditText
         android:id="@+id/itemRawSpecification"
@@ -38,6 +52,29 @@
         android:hint="@string/raw_specification_label"
         android:inputType="text"
         android:minHeight="48dp" />
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal">
+
+        <TextView
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="单件含量"
+            android:textColor="@color/muted"
+            android:textSize="12sp" />
+
+        <TextView
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="8dp"
+            android:layout_weight="1"
+            android:text="含量单位"
+            android:textColor="@color/muted"
+            android:textSize="12sp" />
+    </LinearLayout>
 
     <LinearLayout
         android:layout_width="match_parent"
@@ -62,6 +99,29 @@
             android:hint="@string/content_unit_label"
             android:inputType="text"
             android:minHeight="48dp" />
+    </LinearLayout>
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal">
+
+        <TextView
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="内件数量"
+            android:textColor="@color/muted"
+            android:textSize="12sp" />
+
+        <TextView
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="8dp"
+            android:layout_weight="1"
+            android:text="内件单位"
+            android:textColor="@color/muted"
+            android:textSize="12sp" />
     </LinearLayout>
 
     <LinearLayout
@@ -94,6 +154,29 @@
         android:layout_height="wrap_content"
         android:orientation="horizontal">
 
+        <TextView
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="购买数量"
+            android:textColor="@color/muted"
+            android:textSize="12sp" />
+
+        <TextView
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="8dp"
+            android:layout_weight="1"
+            android:text="购买单位"
+            android:textColor="@color/muted"
+            android:textSize="12sp" />
+    </LinearLayout>
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal">
+
         <EditText
             android:id="@+id/itemPurchaseQuantity"
             android:layout_width="0dp"
@@ -113,6 +196,13 @@
             android:inputType="text"
             android:minHeight="48dp" />
     </LinearLayout>
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="商品实付金额（元）"
+        android:textColor="@color/muted"
+        android:textSize="12sp" />
 
     <EditText
         android:id="@+id/itemPaidAmount"
