@@ -115,6 +115,14 @@ class RecordsAndSettingsUiTests(unittest.TestCase):
         ):
             self.assertIn(call, controller)
 
+    def test_record_detail_routes_are_guarded_from_bad_local_data(self) -> None:
+        controller = source("ui/RecordsController.kt")
+        self.assertIn("private fun openOrderDetail", controller)
+        self.assertIn("private fun openProductDetail", controller)
+        self.assertGreaterEqual(controller.count("showDetailError(error)"), 3)
+        self.assertIn('Log.e(TAG, "Unable to display record details", error)', controller)
+        self.assertIn("runCatching { repository.rememberPriceMode", controller)
+
     def test_settings_has_key_transfer_preview_and_cleanup_controls(self) -> None:
         settings_ids = ids("view_settings.xml")
         self.assertTrue(

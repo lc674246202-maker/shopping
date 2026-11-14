@@ -3,10 +3,12 @@ package com.lc.shoppingrecord
 import android.app.AlertDialog
 import android.graphics.Color
 import android.net.Uri
+import android.os.Build
 import android.os.Bundle
 import android.view.Gravity
 import android.view.View
 import android.view.ViewGroup
+import android.view.WindowInsets
 import android.widget.Button
 import android.widget.HorizontalScrollView
 import android.widget.ImageView
@@ -76,6 +78,7 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
+        applySystemBarInsets()
 
         database = ShoppingDatabaseHelper(applicationContext)
         taskRepository = AiTaskRepository(database)
@@ -393,6 +396,37 @@ class MainActivity : ComponentActivity() {
         status.text = getString(R.string.selected_images_count, selectedImageUris.size)
         container.removeAllViews()
         selectedImageUris.forEachIndexed { index, uri -> container.addView(createImagePreview(index, uri)) }
+    }
+
+    private fun applySystemBarInsets() {
+        val root = findViewById<View>(R.id.appRoot)
+        val initialLeft = root.paddingLeft
+        val initialTop = root.paddingTop
+        val initialRight = root.paddingRight
+        val initialBottom = root.paddingBottom
+        root.setOnApplyWindowInsetsListener { view, windowInsets ->
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                val safeInsets = windowInsets.getInsets(
+                    WindowInsets.Type.systemBars() or WindowInsets.Type.displayCutout()
+                )
+                view.setPadding(
+                    initialLeft + safeInsets.left,
+                    initialTop + safeInsets.top,
+                    initialRight + safeInsets.right,
+                    initialBottom + safeInsets.bottom
+                )
+            } else {
+                val cutout = windowInsets.displayCutout
+                view.setPadding(
+                    initialLeft + maxOf(windowInsets.systemWindowInsetLeft, cutout?.safeInsetLeft ?: 0),
+                    initialTop + maxOf(windowInsets.systemWindowInsetTop, cutout?.safeInsetTop ?: 0),
+                    initialRight + maxOf(windowInsets.systemWindowInsetRight, cutout?.safeInsetRight ?: 0),
+                    initialBottom + maxOf(windowInsets.systemWindowInsetBottom, cutout?.safeInsetBottom ?: 0)
+                )
+            }
+            windowInsets
+        }
+        root.requestApplyInsets()
     }
 
     private fun createImagePreview(index: Int, uri: Uri): View {

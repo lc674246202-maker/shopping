@@ -52,6 +52,7 @@ class AndroidProjectConfigTests(unittest.TestCase):
 
     def test_exact_three_main_navigation_entries(self) -> None:
         layout = ET.parse(PROJECT_ROOT / "app/src/main/res/layout/activity_main.xml").getroot()
+        self.assertEqual("@+id/appRoot", layout.attrib[f"{ANDROID_NS}id"])
         nav_ids = {
             item.attrib[f"{ANDROID_NS}id"]
             for item in layout.iter("TextView")
@@ -63,6 +64,15 @@ class AndroidProjectConfigTests(unittest.TestCase):
             for item in layout.iter("include")
         }
         self.assertEqual({"@+id/pageRecognize", "@+id/pageRecords", "@+id/pageSettings"}, include_ids)
+
+    def test_root_layout_applies_system_bar_and_cutout_insets(self) -> None:
+        activity = (PROJECT_ROOT / "app/src/main/java/com/lc/shoppingrecord/MainActivity.kt").read_text(
+            encoding="utf-8"
+        )
+        self.assertIn("applySystemBarInsets()", activity)
+        self.assertIn("WindowInsets.Type.systemBars()", activity)
+        self.assertIn("WindowInsets.Type.displayCutout()", activity)
+        self.assertIn("root.setOnApplyWindowInsetsListener", activity)
 
     def test_gradle_wrapper_is_pinned_and_present(self) -> None:
         wrapper = (PROJECT_ROOT / "gradle/wrapper/gradle-wrapper.properties").read_text(encoding="utf-8")

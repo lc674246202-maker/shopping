@@ -60,7 +60,7 @@ class RecordsRepository(private val databaseHelper: ShoppingDatabaseHelper) {
     }
 
     fun getOrder(orderId: String): OrderDetail? {
-        val order = databaseHelper.readableDatabase.query(
+        val orderWithoutItems = databaseHelper.readableDatabase.query(
             "orders",
             arrayOf(
                 "order_id", "platform", "external_order_no", "store_name", "order_date",
@@ -74,9 +74,18 @@ class RecordsRepository(private val databaseHelper: ShoppingDatabaseHelper) {
             "1"
         ).use { cursor ->
             if (!cursor.moveToFirst()) return null
-            arrayOfNulls<String>(9).also { values ->
-                for (index in values.indices) values[index] = cursor.stringOrNull(index)
-            } to cursor.longOrNull(6)
+            OrderDetail(
+                orderId = cursor.stringOrNull(0) ?: orderId,
+                platform = cursor.stringOrNull(1)?.takeIf(String::isNotBlank) ?: "未知",
+                externalOrderNo = cursor.stringOrNull(2),
+                storeName = cursor.stringOrNull(3),
+                orderDate = cursor.stringOrNull(4),
+                paidDate = cursor.stringOrNull(5),
+                orderPaidCents = cursor.longOrNull(6),
+                orderStatus = cursor.stringOrNull(7),
+                note = cursor.stringOrNull(8),
+                items = emptyList()
+            )
         }
         val items = databaseHelper.readableDatabase.query(
             "order_items",
@@ -93,19 +102,7 @@ class RecordsRepository(private val databaseHelper: ShoppingDatabaseHelper) {
         ).use { cursor ->
             buildList { while (cursor.moveToNext()) add(cursor.toOrderItem()) }
         }
-        val values = order.first
-        return OrderDetail(
-            orderId = values[0]!!,
-            platform = values[1]!!,
-            externalOrderNo = values[2],
-            storeName = values[3],
-            orderDate = values[4],
-            paidDate = values[5],
-            orderPaidCents = order.second,
-            orderStatus = values[7],
-            note = values[8],
-            items = items
-        )
+        return orderWithoutItems.copy(items = items)
     }
 
     fun listProducts(search: String = ""): List<ProductSummary> {
@@ -131,7 +128,7 @@ class RecordsRepository(private val databaseHelper: ShoppingDatabaseHelper) {
                     add(
                         ProductSummary(
                             productId = cursor.getString(0),
-                            displayName = cursor.getString(1),
+                            displayName = cursor.stringOrNull(1)?.takeIf(String::isNotBlank) ?: "未命名商品",
                             brand = cursor.stringOrNull(2),
                             category = cursor.stringOrNull(3),
                             skuCount = cursor.getInt(4),
@@ -184,7 +181,7 @@ class RecordsRepository(private val databaseHelper: ShoppingDatabaseHelper) {
                             itemId = cursor.getString(0),
                             skuId = cursor.stringOrNull(1),
                             date = cursor.stringOrNull(2),
-                            platform = cursor.getString(3),
+                            platform = cursor.stringOrNull(3)?.takeIf(String::isNotBlank) ?: "未知",
                             storeName = cursor.stringOrNull(4),
                             specification = cursor.stringOrNull(5),
                             saleQuantity = quantity,
@@ -438,7 +435,7 @@ class RecordsRepository(private val databaseHelper: ShoppingDatabaseHelper) {
         orderId = getString(1),
         productId = stringOrNull(2),
         skuId = stringOrNull(3),
-        rawProductName = getString(4),
+        rawProductName = stringOrNull(4)?.takeIf(String::isNotBlank) ?: "未命名商品",
         rawSpecification = stringOrNull(5),
         saleQuantity = stringOrNull(6),
         saleUnit = stringOrNull(7),

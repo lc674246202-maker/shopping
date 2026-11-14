@@ -3,6 +3,7 @@ package com.lc.shoppingrecord.ui
 import android.app.Activity
 import android.app.AlertDialog
 import android.graphics.Typeface
+import android.util.Log
 import android.text.Editable
 import android.text.TextWatcher
 import android.view.Gravity
@@ -119,7 +120,7 @@ class RecordsController(
                 addView(body("${order.itemCount} 件商品 · ${money(order.orderPaidCents)} · ${if (order.needsReview) "待完善" else "已确认"}"))
                 isClickable = true
                 isFocusable = true
-                setOnClickListener { showOrderDetail(order.orderId) }
+                setOnClickListener { openOrderDetail(order.orderId) }
             })
         }
         showEmpty(orders.isEmpty())
@@ -134,7 +135,7 @@ class RecordsController(
                 addView(body("${product.skuCount} 个规格 · ${product.purchaseCount} 次购买"))
                 isClickable = true
                 isFocusable = true
-                setOnClickListener { showProductDetail(product) }
+                setOnClickListener { openProductDetail(product) }
             })
         }
         showEmpty(products.isEmpty())
@@ -149,8 +150,17 @@ class RecordsController(
         }
     }
 
-    private fun showOrderDetail(orderId: String) {
-        val order = repository.getOrder(orderId) ?: return
+    private fun openOrderDetail(orderId: String) {
+        try {
+            val order = repository.getOrder(orderId)
+                ?: return showDetailError(IllegalStateException("订单记录不存在"))
+            showOrderDetail(order)
+        } catch (error: Exception) {
+            showDetailError(error)
+        }
+    }
+
+    private fun showOrderDetail(order: OrderDetail) {
         enterDetail(activity.getString(R.string.order_detail))
         detailContainer.addView(card().apply {
             addView(title("${order.platform} · ${order.paidDate ?: order.orderDate ?: activity.getString(R.string.date_unknown)}"))
@@ -181,7 +191,21 @@ class RecordsController(
         ))
     }
 
-    private fun showProductDetail(product: ProductSummary) {
+    private fun openProductDetail(product: ProductSummary) {
+        try {
+            val skus = repository.listSkus(product.productId)
+            val history = repository.priceHistory(product.productId)
+            showProductDetail(product, skus, history)
+        } catch (error: Exception) {
+            showDetailError(error)
+        }
+    }
+
+    private fun showProductDetail(
+        product: ProductSummary,
+        skus: List<SkuSummary>,
+        history: List<PriceHistoryEntry>
+    ) {
         enterDetail(activity.getString(R.string.product_detail))
         val header = card().apply {
             addView(title(product.displayName))
@@ -189,8 +213,6 @@ class RecordsController(
             addView(actionRow(activity.getString(R.string.edit) to { editProduct(product) }))
         }
         detailContainer.addView(header)
-        val skus = repository.listSkus(product.productId)
-        val history = repository.priceHistory(product.productId)
         val controls = LinearLayout(activity).apply {
             orientation = LinearLayout.VERTICAL
             layoutParams = margins()
@@ -223,10 +245,15 @@ class RecordsController(
         var priceMode = product.preferredPriceMode
             ?: if (history.any { it.standardPrice != null }) "standard" else "package"
         fun rerender() {
-            spinner.visibility = if (priceMode == "package" && skus.isNotEmpty()) View.VISIBLE else View.GONE
-            val selectedSku = skus.getOrNull(spinner.selectedItemPosition)?.skuId
-            renderHistory(resultArea, history, priceMode, selectedSku)
-            repository.rememberPriceMode(product.productId, priceMode)
+            try {
+                spinner.visibility = if (priceMode == "package" && skus.isNotEmpty()) View.VISIBLE else View.GONE
+                val selectedSku = skus.getOrNull(spinner.selectedItemPosition)?.skuId
+                renderHistory(resultArea, history, priceMode, selectedSku)
+                runCatching { repository.rememberPriceMode(product.productId, priceMode) }
+                    .onFailure { Log.w(TAG, "Unable to remember price display mode", it) }
+            } catch (error: Exception) {
+                showDetailError(error)
+            }
         }
         standardButton.setOnClickListener { priceMode = "standard"; rerender() }
         packageButton.setOnClickListener { priceMode = "package"; rerender() }
@@ -297,7 +324,7 @@ class RecordsController(
                         fields[0].text.toString().trim(),
                         nullable(fields[1]), nullable(fields[2]), nullable(fields[3]), amount
                     )
-                    showOrderDetail(order.orderId)
+                    openOrderDetail(order.orderId)
                 }
             }.show()
     }
@@ -326,7 +353,7 @@ class RecordsController(
                         brand.text.toString().trim().takeIf(String::isNotEmpty),
                         category.text.toString().trim().takeIf(String::isNotEmpty)
                     )
-                    showProductDetail(product.copy(
+                    openProductDetail(product.copy(
                         displayName = displayName,
                         brand = brand.text.toString().trim().takeIf(String::isNotEmpty),
                         category = category.text.toString().trim().takeIf(String::isNotEmpty)
@@ -361,7 +388,7 @@ class RecordsController(
                         item.itemId, fields[0].text.toString().trim(), nullable(fields[1]),
                         quantity, nullable(fields[3]), amount
                     )
-                    showOrderDetail(item.orderId)
+                    openOrderDetail(item.orderId)
                 }
             }.show()
     }
@@ -378,7 +405,7 @@ class RecordsController(
             .setNegativeButton(R.string.cancel, null)
             .setPositiveButton(R.string.delete) { _, _ ->
                 repository.deleteItem(item.itemId)
-                if (repository.getOrder(item.orderId) == null) showList() else showOrderDetail(item.orderId)
+                if (repository.getOrder(item.orderId) == null) showList() else openOrderDetail(item.orderId)
             }.show()
     }
 
@@ -390,6 +417,17 @@ class RecordsController(
         pageTitle.text = title
         detailContainer.removeAllViews()
         detailContainer.visibility = View.VISIBLE
+    }
+
+    private fun showDetailError(error: Exception) {
+        Log.e(TAG, "Unable to display record details", error)
+        backButton.visibility = View.GONE
+        listControls.visibility = View.VISIBLE
+        detailContainer.removeAllViews()
+        detailContainer.visibility = View.GONE
+        pageTitle.setText(R.string.records_title)
+        runCatching { refresh() }
+        Toast.makeText(activity, "该记录暂时无法显示，请检查或重新保存记录", Toast.LENGTH_LONG).show()
     }
 
     private fun card() = LinearLayout(activity).apply {
@@ -455,4 +493,8 @@ class RecordsController(
     private fun scrollToTop() = activity.findViewById<ScrollView>(R.id.recordsScroll).post { activity.findViewById<ScrollView>(R.id.recordsScroll).fullScroll(View.FOCUS_UP) }
 
     private enum class Mode { ORDERS, PRODUCTS }
+
+    private companion object {
+        const val TAG = "RecordsController"
+    }
 }
