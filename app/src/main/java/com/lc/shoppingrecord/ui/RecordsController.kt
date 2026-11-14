@@ -45,14 +45,16 @@ class RecordsController(
     private val platformFilter = activity.findViewById<Spinner>(R.id.recordsPlatformFilter)
     private val dateFilter = activity.findViewById<Spinner>(R.id.recordsDateFilter)
     private val recordsScroll = activity.findViewById<ScrollView>(R.id.pageRecords)
+    private val ordersButton = activity.findViewById<Button>(R.id.showOrdersButton)
+    private val productsButton = activity.findViewById<Button>(R.id.showProductsButton)
     private var mode = Mode.PRODUCTS
 
     init {
-        activity.findViewById<View>(R.id.showOrdersButton).setOnClickListener {
+        ordersButton.setOnClickListener {
             mode = Mode.ORDERS
             refresh()
         }
-        activity.findViewById<View>(R.id.showProductsButton).setOnClickListener {
+        productsButton.setOnClickListener {
             mode = Mode.PRODUCTS
             refresh()
         }
@@ -82,6 +84,8 @@ class RecordsController(
 
     fun refresh() {
         if (detailContainer.visibility == View.VISIBLE) return
+        productsButton.isSelected = mode == Mode.PRODUCTS
+        ordersButton.isSelected = mode == Mode.ORDERS
         val query = search.text.toString()
         when (mode) {
             Mode.ORDERS -> {
@@ -116,9 +120,17 @@ class RecordsController(
         listContainer.removeAllViews()
         orders.forEach { order ->
             listContainer.addView(card().apply {
-                addView(title("${order.platform} · ${order.displayDate ?: activity.getString(R.string.date_unknown)}"))
-                addView(body(order.productSummary.ifBlank { "无商品明细" }))
-                addView(body("${order.itemCount} 件商品 · ${money(order.orderPaidCents)} · ${if (order.needsReview) "待完善" else "已确认"}"))
+                addView(LinearLayout(activity).apply {
+                    orientation = LinearLayout.HORIZONTAL
+                    gravity = Gravity.CENTER_VERTICAL
+                    addView(LinearLayout(activity).apply {
+                        orientation = LinearLayout.VERTICAL
+                        addView(title("${order.platform} · ${order.displayDate ?: activity.getString(R.string.date_unknown)}"))
+                        addView(body(order.productSummary.ifBlank { "无商品明细" }))
+                        addView(body("${order.itemCount} 件商品 · ${if (order.needsReview) "待完善" else "已确认"}"))
+                    }, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
+                    addView(title("${money(order.orderPaidCents)}  ›"))
+                })
                 isClickable = true
                 isFocusable = true
                 setOnClickListener { openOrderDetail(order.orderId) }
@@ -130,11 +142,46 @@ class RecordsController(
     private fun renderProducts(products: List<ProductSummary>) {
         listContainer.removeAllViews()
         products.forEach { product ->
+            val history = runCatching { repository.priceHistory(product) }.getOrDefault(emptyList())
+            val standardUnit = history.firstNotNullOfOrNull { it.standardUnit }
+            val comparable = if (standardUnit != null) {
+                history.filter { it.standardPrice != null && it.standardUnit == standardUnit }
+            } else {
+                history.filter { it.packagePrice != null }
+            }
+            val latestText = comparable.firstOrNull()?.let { entry ->
+                if (standardUnit != null) "¥${formatPrice(entry.standardPrice!!)}/$standardUnit"
+                else "¥${formatPrice(entry.packagePrice!!)}/${entry.packageUnit ?: product.saleUnit ?: "件"}"
+            } ?: activity.getString(R.string.amount_unknown)
+            val lowestText = comparable.minByOrNull { entry ->
+                entry.standardPrice ?: entry.packagePrice ?: BigDecimal.valueOf(Long.MAX_VALUE)
+            }?.let { entry ->
+                val value = entry.standardPrice ?: entry.packagePrice
+                value?.let { "最低 ¥${formatPrice(it)}" }
+            }
             listContainer.addView(card().apply {
-                addView(title(product.displayName))
-                addView(body(product.specification ?: "规格待确认"))
-                addView(body(listOfNotNull(product.brand, product.category).joinToString(" · ").ifBlank { "未分类" }))
-                addView(body("${product.purchaseCount} 次购买"))
+                addView(LinearLayout(activity).apply {
+                    orientation = LinearLayout.HORIZONTAL
+                    gravity = Gravity.CENTER_VERTICAL
+                    addView(LinearLayout(activity).apply {
+                        orientation = LinearLayout.VERTICAL
+                        addView(title(product.displayName))
+                        addView(body(product.specification ?: "规格待确认"))
+                        addView(body("共 ${product.purchaseCount} 次购买${lowestText?.let { " · $it" }.orEmpty()}"))
+                    }, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
+                    addView(LinearLayout(activity).apply {
+                        gravity = Gravity.END
+                        orientation = LinearLayout.VERTICAL
+                        addView(title(latestText).apply {
+                            textSize = 15f
+                            gravity = Gravity.END
+                        })
+                        addView(body("查看历史价格  ›").apply {
+                            gravity = Gravity.END
+                            setTextColor(activity.getColor(R.color.green))
+                        })
+                    })
+                })
                 isClickable = true
                 isFocusable = true
                 setOnClickListener { openProductDetail(product) }
@@ -165,28 +212,31 @@ class RecordsController(
     private fun showOrderDetail(order: OrderDetail) {
         enterDetail(activity.getString(R.string.order_detail))
         detailContainer.addView(card().apply {
-            addView(title("${order.platform} · ${order.paidDate ?: order.orderDate ?: activity.getString(R.string.date_unknown)}"))
-            addView(body(order.storeName ?: "店铺待确认"))
-            addView(body("订单号：${order.externalOrderNo ?: "待确认"}"))
-            addView(title(money(order.orderPaidCents)))
-            addView(actionRow(
-                activity.getString(R.string.edit) to { editOrder(order) },
-                activity.getString(R.string.delete) to { confirmDeleteOrder(order.orderId) }
-            ))
+            addView(detailRow("商家", order.storeName ?: order.platform))
+            addView(detailRow("购买日期", order.paidDate ?: order.orderDate ?: activity.getString(R.string.date_unknown)))
+            addView(detailRow("订单号", order.externalOrderNo ?: "待确认"))
+            addView(detailRow("实付款", money(order.orderPaidCents), emphasize = true))
         })
+        detailContainer.addView(sectionTitle("商品明细"))
         order.items.forEachIndexed { index, item ->
             detailContainer.addView(orderItemCard(index, item))
         }
+        detailContainer.addView(actionRow(
+            "编辑订单" to { editOrder(order) },
+            activity.getString(R.string.delete) to { confirmDeleteOrder(order.orderId) }
+        ))
         scrollToTop()
     }
 
     private fun orderItemCard(index: Int, item: OrderItemRecord) = card().apply {
-        addView(title("${index + 1}. ${item.rawProductName}"))
+        addView(body("商品 ${index + 1}"))
+        addView(title(item.rawProductName))
         addView(body(item.rawSpecification ?: "规格待确认"))
-        addView(body("${item.saleQuantity ?: "数量待确认"}${item.saleUnit.orEmpty()} · ${money(item.paidAmountCents)}"))
+        addView(detailRow("购买数量", "${item.saleQuantity ?: "待确认"}${item.saleUnit.orEmpty()}"))
+        addView(detailRow("实付价格", money(item.paidAmountCents), emphasize = true))
         val price = item.saleQuantity?.toBigDecimalOrNull()?.takeIf { it > BigDecimal.ZERO }
             ?.let { quantity -> item.paidAmountCents?.let { BigDecimal.valueOf(it, 2).divide(quantity, 4, RoundingMode.HALF_UP) } }
-        addView(body(price?.let { "${formatPrice(it)}/${item.saleUnit ?: "件"}" } ?: "单价待确认"))
+        addView(detailRow("按件单价", price?.let { "¥${formatPrice(it)}/${item.saleUnit ?: "件"}" } ?: "待确认"))
         addView(actionRow(
             activity.getString(R.string.edit) to { editItem(item) },
             activity.getString(R.string.delete) to { confirmDeleteItem(item) }
@@ -206,12 +256,16 @@ class RecordsController(
         product: ProductSummary,
         history: List<PriceHistoryEntry>
     ) {
-        enterDetail(activity.getString(R.string.product_detail))
+        enterDetail(product.displayName)
         val header = card().apply {
-            addView(title(product.displayName))
-            addView(body(product.specification ?: "规格待确认"))
+            addView(TextView(activity).apply {
+                text = product.specification ?: "规格待确认"
+                textSize = 13f
+                setTextColor(activity.getColor(R.color.green_dark))
+                background = activity.getDrawable(R.drawable.pill_background)
+            })
             addView(body(listOfNotNull(product.brand, product.category).joinToString(" · ").ifBlank { "未分类" }))
-            addView(actionRow(activity.getString(R.string.edit) to { editProduct(product) }))
+            addView(actionRow("修改标准单位" to { editProduct(product) }))
         }
         detailContainer.addView(header)
         val controls = LinearLayout(activity).apply {
@@ -222,10 +276,14 @@ class RecordsController(
         val standardButton = Button(activity).apply {
             text = activity.getString(R.string.standard_price_mode)
             isAllCaps = false
+            background = activity.getDrawable(R.drawable.segmented_button_background)
+            setTextColor(activity.getColorStateList(R.color.segmented_text))
         }
         val packageButton = Button(activity).apply {
             text = activity.getString(R.string.package_price_mode)
             isAllCaps = false
+            background = activity.getDrawable(R.drawable.segmented_button_background)
+            setTextColor(activity.getColorStateList(R.color.segmented_text))
         }
         modeRow.addView(standardButton, LinearLayout.LayoutParams(0, dp(48), 1f))
         modeRow.addView(packageButton, LinearLayout.LayoutParams(0, dp(48), 1f).apply { marginStart = dp(8) })
@@ -238,6 +296,8 @@ class RecordsController(
             ?: if (history.any { it.standardPrice != null }) "standard" else "package"
         fun rerender() {
             try {
+                standardButton.isSelected = priceMode == "standard"
+                packageButton.isSelected = priceMode == "package"
                 renderHistory(resultArea, history, priceMode)
                 runCatching { repository.rememberPriceMode(product.productId, priceMode) }
                     .onFailure { Log.w(TAG, "Unable to remember price display mode", it) }
@@ -272,16 +332,42 @@ class RecordsController(
         val recent = candidates.first()
         val lowest = candidates.minBy(::value)
         target.addView(card().apply {
-            addView(body(activity.getString(R.string.recent_price)))
-            addView(title("¥${formatPrice(value(recent))}/${unit(recent)}"))
-            addView(body(activity.getString(R.string.lowest_price)))
-            addView(title("¥${formatPrice(value(lowest))}/${unit(lowest)} · ${lowest.date ?: "日期待确认"}"))
+            addView(body(if (priceMode == "standard") "当前标准单位" else "当前计价方式"))
+            addView(title(if (priceMode == "standard") {
+                unit(recent).orEmpty()
+            } else {
+                "按销售包装"
+            }))
+            addView(LinearLayout(activity).apply {
+                orientation = LinearLayout.HORIZONTAL
+                addView(metric(activity.getString(R.string.recent_price), "¥${formatPrice(value(recent))}/${unit(recent)}"),
+                    LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
+                addView(metric(activity.getString(R.string.lowest_price), "¥${formatPrice(value(lowest))}/${unit(lowest)}"),
+                    LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f).apply { marginStart = dp(12) })
+            })
         })
+        target.addView(card().apply {
+            addView(PriceHistoryChartView(activity).apply {
+                setValues(candidates.asReversed().map { it.date to value(it) })
+            })
+        })
+        target.addView(sectionTitle("购买历史"))
         candidates.forEach { entry ->
             target.addView(card().apply {
-                addView(title("¥${formatPrice(value(entry))}/${unit(entry)}"))
-                addView(body("${entry.date ?: "日期待确认"} · ${entry.platform}${entry.storeName?.let { " · $it" }.orEmpty()}"))
-                addView(body(entry.specification ?: "规格待确认"))
+                addView(LinearLayout(activity).apply {
+                    orientation = LinearLayout.HORIZONTAL
+                    gravity = Gravity.CENTER_VERTICAL
+                    addView(LinearLayout(activity).apply {
+                        orientation = LinearLayout.VERTICAL
+                        addView(title(entry.date ?: "日期待确认").apply { textSize = 15f })
+                        addView(body("${entry.platform}${entry.storeName?.let { " · $it" }.orEmpty()}"))
+                        addView(body(entry.specification ?: "规格待确认"))
+                    }, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
+                    addView(title("¥${formatPrice(value(entry))}/${unit(entry)}").apply {
+                        textSize = 15f
+                        gravity = Gravity.END
+                    })
+                })
             })
         }
     }
@@ -433,6 +519,7 @@ class RecordsController(
     private fun card() = LinearLayout(activity).apply {
         orientation = LinearLayout.VERTICAL
         background = activity.getDrawable(R.drawable.card_background)
+        elevation = dp(1).toFloat()
         layoutParams = margins()
     }
 
@@ -455,14 +542,50 @@ class RecordsController(
         setPadding(0, dp(5), 0, 0)
     }
 
+    private fun sectionTitle(value: String) = title(value).apply {
+        textSize = 18f
+        setPadding(0, dp(8), 0, dp(10))
+    }
+
+    private fun detailRow(label: String, value: String, emphasize: Boolean = false) =
+        LinearLayout(activity).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            setPadding(0, dp(8), 0, dp(8))
+            addView(body(label).apply { setPadding(0, 0, 0, 0) },
+                LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
+            addView(TextView(activity).apply {
+                text = value
+                textSize = if (emphasize) 16f else 14f
+                setTextColor(activity.getColor(if (emphasize) R.color.ink else R.color.muted))
+                if (emphasize) setTypeface(typeface, Typeface.BOLD)
+            })
+        }
+
+    private fun metric(label: String, value: String) = LinearLayout(activity).apply {
+        orientation = LinearLayout.VERTICAL
+        setPadding(0, dp(12), 0, 0)
+        addView(body(label).apply { setPadding(0, 0, 0, 0) })
+        addView(title(value).apply {
+            textSize = 16f
+            setPadding(0, dp(3), 0, 0)
+        })
+    }
+
     private fun actionRow(vararg actions: Pair<String, () -> Unit>) = LinearLayout(activity).apply {
         orientation = LinearLayout.HORIZONTAL
         gravity = Gravity.END
+        setPadding(0, dp(10), 0, 0)
         actions.forEach { action ->
             addView(Button(activity).apply {
                 text = action.first
                 isAllCaps = false
+                background = activity.getDrawable(R.drawable.secondary_button)
+                setTextColor(activity.getColor(R.color.green))
+                minWidth = 0
                 setOnClickListener { action.second() }
+            }, LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, dp(44)).apply {
+                marginStart = dp(8)
             })
         }
     }
@@ -477,6 +600,9 @@ class RecordsController(
             EditText(activity).apply {
                 hint = "未填写"
                 setText(value.orEmpty())
+                background = activity.getDrawable(R.drawable.input_background)
+                minHeight = dp(48)
+                setPadding(dp(12), dp(8), dp(12), dp(8))
                 if (index in decimalIndexes) inputType = android.text.InputType.TYPE_CLASS_NUMBER or android.text.InputType.TYPE_NUMBER_FLAG_DECIMAL
             }
         }
@@ -486,9 +612,12 @@ class RecordsController(
             fields.forEachIndexed { index, field ->
                 addView(body(labels[index]).apply {
                     setTextColor(activity.getColor(R.color.ink))
-                    setPadding(0, dp(10), 0, 0)
+                    setPadding(0, dp(12), 0, dp(5))
                 })
-                addView(field)
+                addView(field, LinearLayout.LayoutParams(
+                    ViewGroup.LayoutParams.MATCH_PARENT,
+                    dp(48)
+                ))
             }
         } to fields
     }

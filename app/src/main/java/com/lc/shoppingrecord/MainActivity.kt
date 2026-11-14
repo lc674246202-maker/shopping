@@ -2,6 +2,7 @@ package com.lc.shoppingrecord
 
 import android.app.AlertDialog
 import android.graphics.Color
+import android.graphics.Typeface
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
@@ -30,6 +31,7 @@ import com.lc.shoppingrecord.data.RecordsRepository
 import com.lc.shoppingrecord.data.ShoppingDatabaseHelper
 import com.lc.shoppingrecord.model.ConfirmedOrderDraft
 import com.lc.shoppingrecord.model.ConfirmedOrderItemDraft
+import com.lc.shoppingrecord.model.ProductSummary
 import com.lc.shoppingrecord.security.ApiKeyStore
 import com.lc.shoppingrecord.transfer.MigrationManager
 import com.lc.shoppingrecord.transfer.PreparedImport
@@ -39,6 +41,7 @@ import com.lc.shoppingrecord.ui.SettingsController
 import java.time.LocalDate
 import java.util.ArrayDeque
 import java.util.concurrent.Executors
+import java.math.RoundingMode
 
 class MainActivity : ComponentActivity() {
     private lateinit var database: ShoppingDatabaseHelper
@@ -46,6 +49,7 @@ class MainActivity : ComponentActivity() {
     private lateinit var navigation: List<TextView>
     private lateinit var reviewController: RecognitionReviewController
     private lateinit var recordsController: RecordsController
+    private lateinit var recordsRepository: RecordsRepository
     private lateinit var settingsController: SettingsController
     private lateinit var taskRepository: AiTaskRepository
     private lateinit var recognitionCoordinator: RecognitionCoordinator
@@ -89,7 +93,8 @@ class MainActivity : ComponentActivity() {
         migrationManager = MigrationManager(database)
         val keyStore = ApiKeyStore(applicationContext)
         val deepSeekClient = DeepSeekRecognitionClient(contentResolver)
-        recordsController = RecordsController(this, RecordsRepository(database))
+        recordsRepository = RecordsRepository(database)
+        recordsController = RecordsController(this, recordsRepository)
         reviewController = RecognitionReviewController(
             activity = this,
             repository = OrderRepository(database),
@@ -166,6 +171,7 @@ class MainActivity : ComponentActivity() {
 
         showPage(savedInstanceState?.getInt(STATE_PAGE) ?: PAGE_RECOGNIZE)
         renderSelectedImages()
+        refreshRecentRecords()
         loadStorageSummary()
         restoreActiveTaskIfNeeded()
     }
@@ -345,7 +351,66 @@ class MainActivity : ComponentActivity() {
         pages.forEachIndexed { pageIndex, page -> page.visibility = if (pageIndex == index) View.VISIBLE else View.GONE }
         navigation.forEachIndexed { navIndex, item -> item.isSelected = navIndex == index }
         if (index == PAGE_RECORDS) recordsController.refresh()
+        if (index == PAGE_RECOGNIZE) refreshRecentRecords()
         if (index == PAGE_SETTINGS) loadStorageSummary()
+    }
+
+    private fun refreshRecentRecords() {
+        val section = findViewById<View>(R.id.recentRecordsSection)
+        val container = findViewById<LinearLayout>(R.id.recentRecordsContainer)
+        val products = runCatching { recordsRepository.listProducts().take(2) }.getOrDefault(emptyList())
+        container.removeAllViews()
+        section.visibility = if (products.isEmpty()) View.GONE else View.VISIBLE
+        products.forEach { product ->
+            container.addView(createRecentRecordRow(product))
+        }
+    }
+
+    private fun createRecentRecordRow(product: ProductSummary): View {
+        val history = runCatching { recordsRepository.priceHistory(product) }.getOrDefault(emptyList())
+        val recent = history.firstOrNull()
+        val priceText = when {
+            recent?.packagePrice != null ->
+                "¥${recent.packagePrice.setScale(2, RoundingMode.HALF_UP)}/${recent.packageUnit ?: product.saleUnit ?: "件"}"
+            recent?.standardPrice != null ->
+                "¥${recent.standardPrice.setScale(2, RoundingMode.HALF_UP)}/${recent.standardUnit.orEmpty()}"
+            else -> getString(R.string.amount_unknown)
+        }
+        return LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            background = getDrawable(R.drawable.card_background)
+            isClickable = true
+            isFocusable = true
+            setOnClickListener { showPage(PAGE_RECORDS) }
+            layoutParams = LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT
+            ).apply { bottomMargin = dp(10) }
+
+            addView(LinearLayout(this@MainActivity).apply {
+                orientation = LinearLayout.VERTICAL
+                addView(TextView(this@MainActivity).apply {
+                    text = product.displayName
+                    textSize = 16f
+                    setTextColor(getColor(R.color.ink))
+                    setTypeface(typeface, Typeface.BOLD)
+                })
+                addView(TextView(this@MainActivity).apply {
+                    text = product.specification ?: "规格待确认"
+                    textSize = 12f
+                    setTextColor(getColor(R.color.muted))
+                    setPadding(0, dp(4), 0, 0)
+                })
+            }, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
+
+            addView(TextView(this@MainActivity).apply {
+                text = "$priceText  ›"
+                textSize = 14f
+                setTextColor(getColor(R.color.ink))
+                setTypeface(typeface, Typeface.BOLD)
+            })
+        }
     }
 
     private fun loadStorageSummary() {

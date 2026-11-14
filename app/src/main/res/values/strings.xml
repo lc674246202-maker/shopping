@@ -1,12 +1,12 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">购物记录</string>
-    <string name="nav_recognize">识别</string>
+    <string name="nav_recognize">添加</string>
     <string name="nav_records">记录</string>
     <string name="nav_settings">设置</string>
-    <string name="recognize_title">识别购物订单</string>
-    <string name="recognize_description">选择 1—5 张清晰订单截图。识别后先在当前页面核对和修改，再保存为正式记录。</string>
-    <string name="select_screenshots">从相册选择截图</string>
+    <string name="recognize_title">购物记录</string>
+    <string name="recognize_description">拍照识别订单，或直接手动填写购买信息。</string>
+    <string name="select_screenshots">拍照识别</string>
     <string name="selected_images_count">已选择 %1$d / 5 张截图</string>
     <string name="remove_image">移除</string>
     <string name="start_recognition">开始识别</string>
@@ -77,4 +77,8 @@
     <string name="settings_storage_loading">正在读取本地数据库…</string>
     <string name="settings_storage_summary">%1$d 个商品 · %2$d 笔订单 · %3$d 条明细</string>
     <string name="settings_privacy">购物主数据仅保存在手机 SQLite；不会自动云备份或多设备同步。</string>
+    <string name="manual_entry">手动添加</string>
+    <string name="recent_records">最近记录</string>
+    <string name="confirm_purchase_information">确认购买信息</string>
+    <string name="app_version">v0.3.0</string>
 </resources>

@@ -1,180 +1,263 @@
 <?xml version="1.0" encoding="utf-8"?>
 <ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/recognizeScroll"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
+    android:background="@color/canvas"
+    android:clipToPadding="false"
     android:fillViewport="true">
 
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:orientation="vertical"
-        android:padding="20dp">
+        android:paddingStart="18dp"
+        android:paddingTop="24dp"
+        android:paddingEnd="18dp"
+        android:paddingBottom="26dp">
 
         <TextView
-            android:layout_width="wrap_content"
+            android:id="@+id/recognizePageTitle"
+            android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:text="@string/recognize_title"
             android:textColor="@color/ink"
-            android:textSize="27sp"
+            android:textSize="28sp"
             android:textStyle="bold" />
 
-        <TextView
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="8dp"
-            android:text="@string/recognize_description"
-            android:textColor="@color/muted"
-            android:textSize="14sp"
-            android:lineSpacingExtra="3dp" />
-
         <LinearLayout
+            android:id="@+id/recognitionHomeContainer"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="28dp"
-            android:background="@drawable/card_background"
-            android:gravity="center_horizontal"
             android:orientation="vertical">
 
             <TextView
-                android:layout_width="64dp"
-                android:layout_height="64dp"
-                android:background="@drawable/soft_square"
-                android:gravity="center"
-                android:text="图"
-                android:textColor="@color/green"
-                android:textSize="22sp"
-                android:textStyle="bold" />
-
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="16dp"
-                android:text="添加订单截图"
-                android:textColor="@color/ink"
-                android:textSize="19sp"
-                android:textStyle="bold" />
-
-            <TextView
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="8dp"
-                android:gravity="center"
-                android:text="系统图片选择器 · 无需完整相册权限"
+                android:layout_marginTop="7dp"
+                android:lineSpacingExtra="2dp"
+                android:text="@string/recognize_description"
                 android:textColor="@color/muted"
-                android:textSize="12sp" />
+                android:textSize="14sp" />
 
-            <Button
+            <LinearLayout
                 android:id="@+id/selectScreenshotsButton"
                 android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="24dp"
+                android:background="@drawable/action_primary_card"
+                android:clickable="true"
+                android:focusable="true"
+                android:gravity="center_vertical"
+                android:orientation="horizontal">
+
+                <ImageView
+                    android:layout_width="36dp"
+                    android:layout_height="36dp"
+                    android:contentDescription="@string/select_screenshots"
+                    android:src="@drawable/ic_camera" />
+
+                <LinearLayout
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="16dp"
+                    android:layout_weight="1"
+                    android:orientation="vertical">
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="@string/select_screenshots"
+                        android:textColor="@color/ink"
+                        android:textSize="18sp"
+                        android:textStyle="bold" />
+
+                    <TextView
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="4dp"
+                        android:text="从购物订单图片中识别商品"
+                        android:textColor="@color/muted"
+                        android:textSize="13sp" />
+                </LinearLayout>
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="›"
+                    android:textColor="@color/green"
+                    android:textSize="28sp" />
+            </LinearLayout>
+
+            <LinearLayout
+                android:id="@+id/manualEntryButton"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="12dp"
+                android:background="@drawable/action_secondary_card"
+                android:clickable="true"
+                android:focusable="true"
+                android:gravity="center_vertical"
+                android:orientation="horizontal">
+
+                <ImageView
+                    android:layout_width="36dp"
+                    android:layout_height="36dp"
+                    android:contentDescription="@string/manual_entry"
+                    android:src="@drawable/ic_edit" />
+
+                <LinearLayout
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="16dp"
+                    android:layout_weight="1"
+                    android:orientation="vertical">
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="@string/manual_entry"
+                        android:textColor="@color/ink"
+                        android:textSize="18sp"
+                        android:textStyle="bold" />
+
+                    <TextView
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="4dp"
+                        android:text="直接填写购买信息"
+                        android:textColor="@color/muted"
+                        android:textSize="13sp" />
+                </LinearLayout>
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="›"
+                    android:textColor="@color/green"
+                    android:textSize="28sp" />
+            </LinearLayout>
+
+            <TextView
+                android:id="@+id/selectedImagesStatus"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="18dp"
+                android:textColor="@color/ink"
+                android:textSize="14sp"
+                android:textStyle="bold"
+                android:visibility="gone" />
+
+            <HorizontalScrollView
+                android:id="@+id/selectedImagesScroll"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="10dp"
+                android:clipToPadding="false"
+                android:fillViewport="false"
+                android:scrollbars="none"
+                android:visibility="gone">
+
+                <LinearLayout
+                    android:id="@+id/selectedImagesContainer"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal" />
+            </HorizontalScrollView>
+
+            <Button
+                android:id="@+id/startRecognitionButton"
+                android:layout_width="match_parent"
                 android:layout_height="52dp"
-                android:layout_marginTop="20dp"
+                android:layout_marginTop="14dp"
                 android:background="@drawable/primary_button"
-                android:text="@string/select_screenshots"
+                android:enabled="false"
+                android:text="@string/start_recognition"
                 android:textAllCaps="false"
                 android:textColor="@android:color/white"
                 android:textSize="15sp"
-                android:textStyle="bold" />
-
-            <Button
-                android:id="@+id/manualEntryButton"
-                android:layout_width="match_parent"
-                android:layout_height="52dp"
-                android:layout_marginTop="10dp"
-                android:text="手动添加购物记录"
-                android:textAllCaps="false"
-                android:textSize="15sp" />
-        </LinearLayout>
-
-        <TextView
-            android:id="@+id/selectedImagesStatus"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="18dp"
-            android:textColor="@color/ink"
-            android:textSize="14sp"
-            android:textStyle="bold"
-            android:visibility="gone" />
-
-        <HorizontalScrollView
-            android:id="@+id/selectedImagesScroll"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="10dp"
-            android:clipToPadding="false"
-            android:fillViewport="false"
-            android:scrollbars="none"
-            android:visibility="gone">
+                android:textStyle="bold"
+                android:visibility="gone" />
 
             <LinearLayout
-                android:id="@+id/selectedImagesContainer"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:orientation="horizontal" />
-        </HorizontalScrollView>
-
-        <Button
-            android:id="@+id/startRecognitionButton"
-            android:layout_width="match_parent"
-            android:layout_height="52dp"
-            android:layout_marginTop="16dp"
-            android:background="@drawable/primary_button"
-            android:enabled="false"
-            android:text="@string/start_recognition"
-            android:textAllCaps="false"
-            android:textColor="@android:color/white"
-            android:textSize="15sp"
-            android:textStyle="bold"
-            android:visibility="gone" />
-
-        <LinearLayout
-            android:id="@+id/recognitionProcessingContainer"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="18dp"
-            android:background="@drawable/card_background"
-            android:orientation="vertical"
-            android:visibility="gone">
-
-            <TextView
-                android:id="@+id/recognitionProcessingStatus"
+                android:id="@+id/recognitionProcessingContainer"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:text="@string/recognition_processing"
-                android:textColor="@color/ink"
-                android:textSize="16sp"
-                android:textStyle="bold" />
+                android:layout_marginTop="16dp"
+                android:background="@drawable/card_background"
+                android:orientation="vertical"
+                android:visibility="gone">
 
-            <TextView
+                <TextView
+                    android:id="@+id/recognitionProcessingStatus"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="@string/recognition_processing"
+                    android:textColor="@color/ink"
+                    android:textSize="16sp"
+                    android:textStyle="bold" />
+
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="6dp"
+                    android:lineSpacingExtra="2dp"
+                    android:text="@string/recognition_processing_hint"
+                    android:textColor="@color/muted"
+                    android:textSize="12sp" />
+
+                <Button
+                    android:id="@+id/cancelRecognitionButton"
+                    android:layout_width="match_parent"
+                    android:layout_height="48dp"
+                    android:layout_marginTop="12dp"
+                    android:background="@drawable/secondary_button"
+                    android:text="@string/cancel_recognition"
+                    android:textAllCaps="false"
+                    android:textColor="@color/green" />
+
+                <Button
+                    android:id="@+id/retryRecognitionButton"
+                    android:layout_width="match_parent"
+                    android:layout_height="48dp"
+                    android:layout_marginTop="8dp"
+                    android:background="@drawable/primary_button"
+                    android:text="@string/retry_recognition"
+                    android:textAllCaps="false"
+                    android:textColor="@android:color/white"
+                    android:visibility="gone" />
+            </LinearLayout>
+
+            <LinearLayout
+                android:id="@+id/recentRecordsSection"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="6dp"
-                android:text="@string/recognition_processing_hint"
-                android:textColor="@color/muted"
-                android:textSize="12sp" />
+                android:layout_marginTop="26dp"
+                android:orientation="vertical"
+                android:visibility="gone">
 
-            <Button
-                android:id="@+id/cancelRecognitionButton"
-                android:layout_width="match_parent"
-                android:layout_height="48dp"
-                android:layout_marginTop="12dp"
-                android:text="@string/cancel_recognition"
-                android:textAllCaps="false" />
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="@string/recent_records"
+                    android:textColor="@color/ink"
+                    android:textSize="18sp"
+                    android:textStyle="bold" />
 
-            <Button
-                android:id="@+id/retryRecognitionButton"
-                android:layout_width="match_parent"
-                android:layout_height="48dp"
-                android:layout_marginTop="8dp"
-                android:text="@string/retry_recognition"
-                android:textAllCaps="false"
-                android:visibility="gone" />
+                <LinearLayout
+                    android:id="@+id/recentRecordsContainer"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="10dp"
+                    android:orientation="vertical" />
+            </LinearLayout>
         </LinearLayout>
 
         <LinearLayout
             android:id="@+id/recognitionResultContainer"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="24dp"
+            android:layout_marginTop="14dp"
             android:orientation="vertical"
             android:visibility="gone">
 
@@ -182,16 +265,16 @@
                 android:id="@+id/reviewBanner"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:background="@drawable/soft_square"
-                android:padding="16dp"
+                android:background="@drawable/action_primary_card"
+                android:lineSpacingExtra="2dp"
                 android:text="@string/review_banner"
-                android:textColor="@color/ink"
-                android:textSize="14sp" />
+                android:textColor="@color/green_dark"
+                android:textSize="13sp" />
 
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="20dp"
+                android:layout_marginTop="22dp"
                 android:text="@string/order_information"
                 android:textColor="@color/ink"
                 android:textSize="18sp"
@@ -204,86 +287,22 @@
                 android:background="@drawable/card_background"
                 android:orientation="vertical">
 
-                <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="平台"
-                    android:textColor="@color/muted"
-                    android:textSize="12sp" />
-
-                <EditText
-                    android:id="@+id/reviewPlatform"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:hint="@string/platform_label"
-                    android:inputType="text"
-                    android:minHeight="48dp" />
-
-                <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="店铺"
-                    android:textColor="@color/muted"
-                    android:textSize="12sp" />
-
-                <EditText
-                    android:id="@+id/reviewStore"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:hint="@string/store_label"
-                    android:inputType="text"
-                    android:minHeight="48dp" />
-
-                <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="订单号"
-                    android:textColor="@color/muted"
-                    android:textSize="12sp" />
-
-                <EditText
-                    android:id="@+id/reviewOrderNumber"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:hint="@string/order_number_label"
-                    android:inputType="text"
-                    android:minHeight="48dp" />
-
-                <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="付款日期"
-                    android:textColor="@color/muted"
-                    android:textSize="12sp" />
-
-                <EditText
-                    android:id="@+id/reviewPaidDate"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:hint="@string/paid_date_label"
-                    android:inputType="text"
-                    android:minHeight="48dp" />
-
-                <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="整单实付金额（元）"
-                    android:textColor="@color/muted"
-                    android:textSize="12sp" />
-
-                <EditText
-                    android:id="@+id/reviewOrderPaid"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:hint="@string/order_paid_label"
-                    android:inputType="numberDecimal"
-                    android:minHeight="48dp" />
+                <TextView style="@style/FormLabel" android:text="平台" />
+                <EditText android:id="@+id/reviewPlatform" style="@style/FormInput" android:hint="@string/platform_label" android:inputType="text" />
+                <TextView style="@style/FormLabel" android:layout_marginTop="12dp" android:text="店铺" />
+                <EditText android:id="@+id/reviewStore" style="@style/FormInput" android:hint="@string/store_label" android:inputType="text" />
+                <TextView style="@style/FormLabel" android:layout_marginTop="12dp" android:text="订单号" />
+                <EditText android:id="@+id/reviewOrderNumber" style="@style/FormInput" android:hint="@string/order_number_label" android:inputType="text" />
+                <TextView style="@style/FormLabel" android:layout_marginTop="12dp" android:text="购买日期" />
+                <EditText android:id="@+id/reviewPaidDate" style="@style/FormInput" android:hint="@string/paid_date_label" android:inputType="text" />
+                <TextView style="@style/FormLabel" android:layout_marginTop="12dp" android:text="实付款（元）" />
+                <EditText android:id="@+id/reviewOrderPaid" style="@style/FormInput" android:hint="@string/order_paid_label" android:inputType="numberDecimal" />
             </LinearLayout>
 
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="20dp"
+                android:layout_marginTop="22dp"
                 android:text="@string/recognized_items"
                 android:textColor="@color/ink"
                 android:textSize="18sp"
@@ -300,14 +319,14 @@
                 android:id="@+id/reconcileStatus"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="8dp"
+                android:layout_marginTop="4dp"
                 android:textColor="@color/orange"
                 android:textSize="13sp" />
 
             <TextView
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="20dp"
+                android:layout_marginTop="18dp"
                 android:gravity="center"
                 android:text="@string/save_record_hint"
                 android:textColor="@color/muted"
@@ -316,14 +335,13 @@
             <Button
                 android:id="@+id/saveRecognitionButton"
                 android:layout_width="match_parent"
-                android:layout_height="52dp"
+                android:layout_height="54dp"
                 android:layout_marginTop="10dp"
-                android:layout_marginBottom="24dp"
                 android:background="@drawable/primary_button"
                 android:text="@string/save_record"
                 android:textAllCaps="false"
                 android:textColor="@android:color/white"
-                android:textSize="15sp"
+                android:textSize="16sp"
                 android:textStyle="bold" />
         </LinearLayout>
     </LinearLayout>

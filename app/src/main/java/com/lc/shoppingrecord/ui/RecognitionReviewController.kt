@@ -12,6 +12,7 @@ import android.widget.AutoCompleteTextView
 import android.widget.LinearLayout
 import android.widget.TextView
 import android.widget.Toast
+import android.widget.ScrollView
 import com.lc.shoppingrecord.R
 import com.lc.shoppingrecord.data.OrderRepository
 import com.lc.shoppingrecord.model.ConfirmedOrderDraft
@@ -44,6 +45,9 @@ class RecognitionReviewController(
 
     fun show(draft: ConfirmedOrderDraft, manual: Boolean = false) {
         currentDraft = draft
+        activity.findViewById<View>(R.id.recognitionHomeContainer).visibility = View.GONE
+        activity.findViewById<TextView>(R.id.recognizePageTitle)
+            .setText(R.string.confirm_purchase_information)
         activity.findViewById<TextView>(R.id.reviewBanner).text = if (manual) {
             "手动填写购物信息；输入已有商品名称可自动带出最近一次购买信息，所有字段仍可修改。"
         } else {
@@ -71,11 +75,16 @@ class RecognitionReviewController(
         }
         resultContainer.visibility = View.VISIBLE
         updateReconciliation()
+        activity.findViewById<ScrollView>(R.id.recognizeScroll).post {
+            activity.findViewById<ScrollView>(R.id.recognizeScroll).fullScroll(View.FOCUS_UP)
+        }
     }
 
     fun hide() {
         currentDraft = null
         resultContainer.visibility = View.GONE
+        activity.findViewById<View>(R.id.recognitionHomeContainer).visibility = View.VISIBLE
+        activity.findViewById<TextView>(R.id.recognizePageTitle).setText(R.string.recognize_title)
         itemBindings.clear()
         itemContainer.removeAllViews()
     }

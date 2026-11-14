@@ -4,6 +4,7 @@ import android.view.View
 import android.widget.AutoCompleteTextView
 import android.widget.EditText
 import android.widget.LinearLayout
+import android.widget.TextView
 import androidx.test.core.app.ActivityScenario
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
@@ -66,6 +67,37 @@ class RecordsNavigationTest {
                 assertEquals("1", activity.findViewById<EditText>(R.id.itemPurchaseQuantity).text.toString())
                 assertEquals("箱", activity.findViewById<EditText>(R.id.itemSaleUnit).text.toString())
                 assertEquals("43.20", activity.findViewById<EditText>(R.id.itemPaidAmount).text.toString())
+            }
+        }
+    }
+
+    @Test
+    fun approvedUiMovesFromAddHomeToEditableConfirmation() {
+        ActivityScenario.launch(MainActivity::class.java).use { scenario ->
+            scenario.onActivity { activity ->
+                assertEquals(
+                    "购物记录",
+                    activity.findViewById<TextView>(R.id.recognizePageTitle).text.toString()
+                )
+                assertEquals(
+                    View.VISIBLE,
+                    activity.findViewById<View>(R.id.recognitionHomeContainer).visibility
+                )
+
+                activity.findViewById<View>(R.id.manualEntryButton).performClick()
+
+                assertEquals(
+                    "确认购买信息",
+                    activity.findViewById<TextView>(R.id.recognizePageTitle).text.toString()
+                )
+                assertEquals(
+                    View.GONE,
+                    activity.findViewById<View>(R.id.recognitionHomeContainer).visibility
+                )
+                assertEquals(
+                    View.VISIBLE,
+                    activity.findViewById<View>(R.id.recognitionResultContainer).visibility
+                )
             }
         }
     }

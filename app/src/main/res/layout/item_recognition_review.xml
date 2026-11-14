@@ -22,58 +22,29 @@
         android:textColor="@color/green"
         android:textSize="12sp" />
 
-    <TextView
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="10dp"
-        android:text="商品名称"
-        android:textColor="@color/muted"
-        android:textSize="12sp" />
-
+    <TextView style="@style/FormLabel" android:layout_marginTop="14dp" android:text="商品名称" />
     <AutoCompleteTextView
         android:id="@+id/itemProductName"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
+        style="@style/FormInput"
+        android:completionThreshold="1"
         android:hint="@string/product_name_label"
-        android:inputType="text"
-        android:minHeight="48dp" />
+        android:inputType="text" />
 
-    <TextView
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="规格型号"
-        android:textColor="@color/muted"
-        android:textSize="12sp" />
-
+    <TextView style="@style/FormLabel" android:layout_marginTop="12dp" android:text="规格型号" />
     <EditText
         android:id="@+id/itemRawSpecification"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
+        style="@style/FormInput"
         android:hint="@string/raw_specification_label"
-        android:inputType="text"
-        android:minHeight="48dp" />
+        android:inputType="text" />
 
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
+        android:layout_marginTop="12dp"
         android:orientation="horizontal">
 
-        <TextView
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:text="单件含量"
-            android:textColor="@color/muted"
-            android:textSize="12sp" />
-
-        <TextView
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_marginStart="8dp"
-            android:layout_weight="1"
-            android:text="含量单位"
-            android:textColor="@color/muted"
-            android:textSize="12sp" />
+        <TextView style="@style/FormLabel" android:layout_width="0dp" android:layout_weight="1" android:text="单件含量" />
+        <TextView style="@style/FormLabel" android:layout_width="0dp" android:layout_marginStart="10dp" android:layout_weight="1" android:text="含量单位" />
     </LinearLayout>
 
     <LinearLayout
@@ -83,45 +54,29 @@
 
         <EditText
             android:id="@+id/itemContentPerInner"
+            style="@style/FormInput"
             android:layout_width="0dp"
-            android:layout_height="wrap_content"
             android:layout_weight="1"
             android:hint="@string/content_per_inner_label"
-            android:inputType="numberDecimal"
-            android:minHeight="48dp" />
-
+            android:inputType="numberDecimal" />
         <EditText
             android:id="@+id/itemContentUnit"
+            style="@style/FormInput"
             android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_marginStart="8dp"
+            android:layout_marginStart="10dp"
             android:layout_weight="1"
             android:hint="@string/content_unit_label"
-            android:inputType="text"
-            android:minHeight="48dp" />
+            android:inputType="text" />
     </LinearLayout>
 
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
+        android:layout_marginTop="12dp"
         android:orientation="horizontal">
 
-        <TextView
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:text="内件数量"
-            android:textColor="@color/muted"
-            android:textSize="12sp" />
-
-        <TextView
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_marginStart="8dp"
-            android:layout_weight="1"
-            android:text="内件单位"
-            android:textColor="@color/muted"
-            android:textSize="12sp" />
+        <TextView style="@style/FormLabel" android:layout_width="0dp" android:layout_weight="1" android:text="件数" />
+        <TextView style="@style/FormLabel" android:layout_width="0dp" android:layout_marginStart="10dp" android:layout_weight="1" android:text="件数单位" />
     </LinearLayout>
 
     <LinearLayout
@@ -131,45 +86,29 @@
 
         <EditText
             android:id="@+id/itemInnerCount"
+            style="@style/FormInput"
             android:layout_width="0dp"
-            android:layout_height="wrap_content"
             android:layout_weight="1"
             android:hint="@string/inner_count_label"
-            android:inputType="numberDecimal"
-            android:minHeight="48dp" />
-
+            android:inputType="numberDecimal" />
         <EditText
             android:id="@+id/itemInnerUnit"
+            style="@style/FormInput"
             android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_marginStart="8dp"
+            android:layout_marginStart="10dp"
             android:layout_weight="1"
             android:hint="@string/inner_unit_label"
-            android:inputType="text"
-            android:minHeight="48dp" />
+            android:inputType="text" />
     </LinearLayout>
 
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
+        android:layout_marginTop="12dp"
         android:orientation="horizontal">
 
-        <TextView
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:text="购买数量"
-            android:textColor="@color/muted"
-            android:textSize="12sp" />
-
-        <TextView
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_marginStart="8dp"
-            android:layout_weight="1"
-            android:text="购买单位"
-            android:textColor="@color/muted"
-            android:textSize="12sp" />
+        <TextView style="@style/FormLabel" android:layout_width="0dp" android:layout_weight="1" android:text="购买数量" />
+        <TextView style="@style/FormLabel" android:layout_width="0dp" android:layout_marginStart="10dp" android:layout_weight="1" android:text="购买单位" />
     </LinearLayout>
 
     <LinearLayout
@@ -179,68 +118,63 @@
 
         <EditText
             android:id="@+id/itemPurchaseQuantity"
+            style="@style/FormInput"
             android:layout_width="0dp"
-            android:layout_height="wrap_content"
             android:layout_weight="1"
             android:hint="@string/purchase_quantity_label"
-            android:inputType="numberDecimal"
-            android:minHeight="48dp" />
-
+            android:inputType="numberDecimal" />
         <EditText
             android:id="@+id/itemSaleUnit"
+            style="@style/FormInput"
             android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_marginStart="8dp"
+            android:layout_marginStart="10dp"
             android:layout_weight="1"
             android:hint="@string/sale_unit_label"
-            android:inputType="text"
-            android:minHeight="48dp" />
+            android:inputType="text" />
     </LinearLayout>
 
-    <TextView
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="商品实付金额（元）"
-        android:textColor="@color/muted"
-        android:textSize="12sp" />
-
+    <TextView style="@style/FormLabel" android:layout_marginTop="12dp" android:text="实付价格（元）" />
     <EditText
         android:id="@+id/itemPaidAmount"
+        style="@style/FormInput"
+        android:hint="@string/line_paid_label"
+        android:inputType="numberDecimal" />
+
+    <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:hint="@string/line_paid_label"
-        android:inputType="numberDecimal"
-        android:minHeight="48dp" />
+        android:layout_marginTop="14dp"
+        android:background="@drawable/action_primary_card"
+        android:orientation="vertical">
 
-    <TextView
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="10dp"
-        android:text="@string/package_price_label"
-        android:textColor="@color/muted"
-        android:textSize="12sp" />
-
-    <TextView
-        android:id="@+id/itemPackagePrice"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:textColor="@color/ink"
-        android:textSize="17sp"
-        android:textStyle="bold" />
-
-    <TextView
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="8dp"
-        android:text="@string/standard_price_label"
-        android:textColor="@color/muted"
-        android:textSize="12sp" />
-
-    <TextView
-        android:id="@+id/itemStandardPrice"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:textColor="@color/ink"
-        android:textSize="17sp"
-        android:textStyle="bold" />
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="@string/package_price_label"
+            android:textColor="@color/muted"
+            android:textSize="12sp" />
+        <TextView
+            android:id="@+id/itemPackagePrice"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="3dp"
+            android:textColor="@color/ink"
+            android:textSize="16sp"
+            android:textStyle="bold" />
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="10dp"
+            android:text="@string/standard_price_label"
+            android:textColor="@color/muted"
+            android:textSize="12sp" />
+        <TextView
+            android:id="@+id/itemStandardPrice"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="3dp"
+            android:textColor="@color/green_dark"
+            android:textSize="18sp"
+            android:textStyle="bold" />
+    </LinearLayout>
 </LinearLayout>

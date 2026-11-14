@@ -3,13 +3,18 @@
     android:id="@+id/recordsScroll"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
+    android:background="@color/canvas"
+    android:clipToPadding="false"
     android:fillViewport="true">
 
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:orientation="vertical"
-        android:padding="20dp">
+        android:paddingStart="18dp"
+        android:paddingTop="24dp"
+        android:paddingEnd="18dp"
+        android:paddingBottom="26dp">
 
         <LinearLayout
             android:layout_width="match_parent"
@@ -19,10 +24,15 @@
 
             <Button
                 android:id="@+id/recordsBackButton"
-                android:layout_width="wrap_content"
-                android:layout_height="48dp"
-                android:text="返回"
+                android:layout_width="46dp"
+                android:layout_height="44dp"
+                android:layout_marginEnd="8dp"
+                android:background="@drawable/secondary_button"
+                android:minWidth="0dp"
+                android:text="‹"
                 android:textAllCaps="false"
+                android:textColor="@color/green"
+                android:textSize="28sp"
                 android:visibility="gone" />
 
             <TextView
@@ -32,7 +42,7 @@
                 android:layout_weight="1"
                 android:text="@string/records_title"
                 android:textColor="@color/ink"
-                android:textSize="27sp"
+                android:textSize="28sp"
                 android:textStyle="bold" />
         </LinearLayout>
 
@@ -40,60 +50,84 @@
             android:id="@+id/recordsListControls"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="16dp"
+            android:layout_marginTop="18dp"
             android:orientation="vertical">
 
             <LinearLayout
                 android:layout_width="match_parent"
-                android:layout_height="48dp"
-                android:orientation="horizontal">
-
-                <Button
-                    android:id="@+id/showOrdersButton"
-                    android:layout_width="0dp"
-                    android:layout_height="match_parent"
-                    android:layout_weight="1"
-                    android:text="按订单"
-                    android:textAllCaps="false" />
+                android:layout_height="46dp"
+                android:background="@drawable/segmented_container_background"
+                android:orientation="horizontal"
+                android:padding="3dp">
 
                 <Button
                     android:id="@+id/showProductsButton"
                     android:layout_width="0dp"
                     android:layout_height="match_parent"
-                    android:layout_marginStart="8dp"
                     android:layout_weight="1"
+                    android:background="@drawable/segmented_button_background"
+                    android:minHeight="0dp"
+                    android:minWidth="0dp"
                     android:text="按商品"
-                    android:textAllCaps="false" />
+                    android:textAllCaps="false"
+                    android:textColor="@color/segmented_text"
+                    android:textSize="14sp"
+                    android:textStyle="bold" />
+
+                <Button
+                    android:id="@+id/showOrdersButton"
+                    android:layout_width="0dp"
+                    android:layout_height="match_parent"
+                    android:layout_marginStart="4dp"
+                    android:layout_weight="1"
+                    android:background="@drawable/segmented_button_background"
+                    android:minHeight="0dp"
+                    android:minWidth="0dp"
+                    android:text="按订单"
+                    android:textAllCaps="false"
+                    android:textColor="@color/segmented_text"
+                    android:textSize="14sp"
+                    android:textStyle="bold" />
             </LinearLayout>
 
             <EditText
                 android:id="@+id/recordsSearch"
                 android:layout_width="match_parent"
-                android:layout_height="52dp"
-                android:layout_marginTop="10dp"
-                android:hint="搜索商品、品牌、订单号、平台或店铺"
+                android:layout_height="50dp"
+                android:layout_marginTop="12dp"
+                android:background="@drawable/input_background"
+                android:drawableStart="@drawable/ic_search"
+                android:drawablePadding="9dp"
+                android:hint="搜索商品"
                 android:inputType="text"
-                android:singleLine="true" />
+                android:singleLine="true"
+                android:textColor="@color/ink"
+                android:textColorHint="@color/muted"
+                android:textSize="14sp" />
 
             <LinearLayout
                 android:id="@+id/recordsFilterRow"
                 android:layout_width="match_parent"
                 android:layout_height="48dp"
-                android:layout_marginTop="6dp"
+                android:layout_marginTop="8dp"
                 android:orientation="horizontal">
 
                 <Spinner
                     android:id="@+id/recordsPlatformFilter"
                     android:layout_width="0dp"
                     android:layout_height="match_parent"
-                    android:layout_weight="1" />
+                    android:layout_weight="1"
+                    android:background="@drawable/input_background"
+                    android:paddingHorizontal="8dp" />
 
                 <Spinner
                     android:id="@+id/recordsDateFilter"
                     android:layout_width="0dp"
                     android:layout_height="match_parent"
                     android:layout_marginStart="8dp"
-                    android:layout_weight="1" />
+                    android:layout_weight="1"
+                    android:background="@drawable/input_background"
+                    android:paddingHorizontal="8dp" />
             </LinearLayout>
         </LinearLayout>
 
@@ -127,6 +161,7 @@
                 android:layout_height="wrap_content"
                 android:layout_marginTop="8dp"
                 android:gravity="center"
+                android:lineSpacingExtra="2dp"
                 android:text="@string/records_empty_hint"
                 android:textColor="@color/muted"
                 android:textSize="13sp" />
