@@ -17,10 +17,9 @@ import com.lc.shoppingrecord.R
 import com.lc.shoppingrecord.data.OrderRepository
 import com.lc.shoppingrecord.model.ConfirmedOrderDraft
 import com.lc.shoppingrecord.model.ConfirmedOrderItemDraft
+import com.lc.shoppingrecord.model.DateOnly
 import com.lc.shoppingrecord.model.PriceIssue
-import com.lc.shoppingrecord.model.SaleSpecification
 import com.lc.shoppingrecord.model.SaveOrderResult
-import com.lc.shoppingrecord.pricing.MeasurementNormalizer
 import com.lc.shoppingrecord.pricing.PricingCalculator
 import java.math.BigDecimal
 import java.math.RoundingMode
@@ -46,6 +45,7 @@ class RecognitionReviewController(
     fun show(draft: ConfirmedOrderDraft, manual: Boolean = false) {
         currentDraft = draft
         activity.findViewById<View>(R.id.recognitionHomeContainer).visibility = View.GONE
+        activity.findViewById<View>(R.id.recognitionBackButton).visibility = View.VISIBLE
         activity.findViewById<TextView>(R.id.recognizePageTitle)
             .setText(R.string.confirm_purchase_information)
         activity.findViewById<TextView>(R.id.reviewBanner).text = if (manual) {
@@ -84,6 +84,7 @@ class RecognitionReviewController(
         currentDraft = null
         resultContainer.visibility = View.GONE
         activity.findViewById<View>(R.id.recognitionHomeContainer).visibility = View.VISIBLE
+        activity.findViewById<View>(R.id.recognitionBackButton).visibility = View.GONE
         activity.findViewById<TextView>(R.id.recognizePageTitle).setText(R.string.recognize_title)
         itemBindings.clear()
         itemContainer.removeAllViews()
@@ -141,7 +142,7 @@ class RecognitionReviewController(
             platform = platform,
             externalOrderNo = textOrNull(R.id.reviewOrderNumber),
             storeName = textOrNull(R.id.reviewStore),
-            paidDate = textOrNull(R.id.reviewPaidDate),
+            paidDate = DateOnly.normalize(textOrNull(R.id.reviewPaidDate)),
             orderPaidCents = orderPaid,
             items = items
         )
@@ -169,12 +170,8 @@ class RecognitionReviewController(
         private val status: TextView = view.findViewById(R.id.itemRecognitionStatus)
         private val productName: AutoCompleteTextView = view.findViewById(R.id.itemProductName)
         private val rawSpecification: EditText = view.findViewById(R.id.itemRawSpecification)
-        private val contentPerInner: EditText = view.findViewById(R.id.itemContentPerInner)
-        private val contentUnit: EditText = view.findViewById(R.id.itemContentUnit)
         private val innerCount: EditText = view.findViewById(R.id.itemInnerCount)
-        private val innerUnit: EditText = view.findViewById(R.id.itemInnerUnit)
         private val purchaseQuantity: EditText = view.findViewById(R.id.itemPurchaseQuantity)
-        private val saleUnit: EditText = view.findViewById(R.id.itemSaleUnit)
         val paidAmount: EditText = view.findViewById(R.id.itemPaidAmount)
         private val packagePrice: TextView = view.findViewById(R.id.itemPackagePrice)
         private val standardPrice: TextView = view.findViewById(R.id.itemStandardPrice)
@@ -197,22 +194,14 @@ class RecognitionReviewController(
             source = item
             productName.setText(item.rawProductName, false)
             rawSpecification.setText(item.rawSpecification.orEmpty())
-            contentPerInner.setText(item.contentPerInner.orEmpty())
-            contentUnit.setText(item.contentUnit.orEmpty())
             innerCount.setText(item.innerCountPerSaleUnit.orEmpty())
-            innerUnit.setText(item.innerUnit.orEmpty())
             purchaseQuantity.setText(item.saleQuantity.orEmpty())
-            saleUnit.setText(item.saleUnit.orEmpty())
             paidAmount.setText(centsToYuan(item.paidAmountCents))
             applyingHistory = false
             listOf(
                 rawSpecification,
-                contentPerInner,
-                contentUnit,
                 innerCount,
-                innerUnit,
                 purchaseQuantity,
-                saleUnit,
                 paidAmount
             ).forEach { it.hint = activity.getString(R.string.unknown_field_hint) }
         }
@@ -239,12 +228,8 @@ class RecognitionReviewController(
             listOf(
                 productName,
                 rawSpecification,
-                contentPerInner,
-                contentUnit,
                 innerCount,
-                innerUnit,
                 purchaseQuantity,
-                saleUnit,
                 paidAmount
             ).forEach { it.addTextChangedListener(watcher) }
         }
@@ -252,9 +237,7 @@ class RecognitionReviewController(
         fun updateRecognitionStatus() {
             val missing = listOf(
                 productName,
-                rawSpecification,
                 purchaseQuantity,
-                saleUnit,
                 paidAmount
             ).any { it.text.isNullOrBlank() }
             status.setText(if (missing) R.string.recognized_missing else R.string.recognized_filled)
@@ -266,13 +249,13 @@ class RecognitionReviewController(
         fun updatePrices() {
             val paid = parseMoney(paidAmount)
             val quantity = decimalOrNull(purchaseQuantity)
-            val specification = readSpecification()
-            val result = PricingCalculator.calculate(paid, quantity, specification)
+            val pieces = decimalOrNull(innerCount)
+            val result = PricingCalculator.calculate(paid, quantity, pieces, source.saleUnit ?: "份")
             packagePrice.text = result.packagePrice?.let {
-                "¥${formatPrice(it)}/${result.packageUnit ?: saleUnit.text.toString().ifBlank { "件" }}"
+                "¥${formatPrice(it)}/份"
             } ?: activity.getString(R.string.price_waiting)
             standardPrice.text = result.standardPrice?.let {
-                "¥${formatPrice(it)}/${result.standardUnit}"
+                "¥${formatPrice(it)}/件"
             } ?: activity.getString(
                 if (result.issue == PriceIssue.MISSING_PAID_AMOUNT) {
                     R.string.price_waiting
@@ -294,31 +277,23 @@ class RecognitionReviewController(
                 paidAmount.error = activity.getString(R.string.invalid_money)
                 return null
             }
-            val specification = readSpecification()
-            val normalized = specification?.let(MeasurementNormalizer::normalize)
             return source.copy(
                 rawProductName = name,
                 rawSpecification = rawSpecification.text.toString().trim().takeIf(String::isNotEmpty),
-                contentPerInner = contentPerInner.text.toString().trim().takeIf(String::isNotEmpty),
-                contentUnit = contentUnit.text.toString().trim().takeIf(String::isNotEmpty),
-                baseQuantityPerSaleUnit = normalized?.quantityPerSaleUnit?.stripTrailingZeros()?.toPlainString(),
-                baseUnit = normalized?.unit,
+                measurementType = null,
+                contentPerInner = null,
+                contentUnit = null,
+                baseQuantityPerSaleUnit = null,
+                baseUnit = null,
                 saleQuantity = purchaseQuantity.text.toString().trim().takeIf(String::isNotEmpty),
-                saleUnit = saleUnit.text.toString().trim().takeIf(String::isNotEmpty),
-                innerUnit = innerUnit.text.toString().trim().takeIf(String::isNotEmpty),
+                saleUnit = source.saleUnit?.takeIf(String::isNotBlank) ?: "份",
+                innerUnit = null,
                 innerCountPerSaleUnit = innerCount.text.toString().trim().takeIf(String::isNotEmpty),
                 paidAmountCents = paid,
                 priceSource = "user_confirmed"
             )
         }
 
-        private fun readSpecification(): SaleSpecification? {
-            val content = decimalOrNull(contentPerInner) ?: return null
-            val count = decimalOrNull(innerCount) ?: return null
-            val unit = contentUnit.text.toString().trim().takeIf(String::isNotEmpty) ?: return null
-            val sale = saleUnit.text.toString().trim().takeIf(String::isNotEmpty) ?: return null
-            return SaleSpecification(content, unit, count, sale)
-        }
     }
 
     private fun decimalOrNull(field: EditText): BigDecimal? = field.text.toString()

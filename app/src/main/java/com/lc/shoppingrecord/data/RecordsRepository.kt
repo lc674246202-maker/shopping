@@ -4,12 +4,12 @@ import android.content.ContentValues
 import android.database.Cursor
 import com.lc.shoppingrecord.model.OrderDetail
 import com.lc.shoppingrecord.model.OrderItemRecord
+import com.lc.shoppingrecord.model.OrderItemUpdate
 import com.lc.shoppingrecord.model.OrderSummary
+import com.lc.shoppingrecord.model.DateOnly
 import com.lc.shoppingrecord.model.PriceHistoryEntry
 import com.lc.shoppingrecord.model.ProductSummary
-import com.lc.shoppingrecord.model.SaleSpecification
 import com.lc.shoppingrecord.model.SkuSummary
-import com.lc.shoppingrecord.pricing.MeasurementNormalizer
 import com.lc.shoppingrecord.pricing.PricingCalculator
 import org.json.JSONObject
 import java.math.BigDecimal
@@ -80,8 +80,8 @@ class RecordsRepository(private val databaseHelper: ShoppingDatabaseHelper) {
                 platform = cursor.stringOrNull(1)?.takeIf(String::isNotBlank) ?: "未知",
                 externalOrderNo = cursor.stringOrNull(2),
                 storeName = cursor.stringOrNull(3),
-                orderDate = cursor.stringOrNull(4),
-                paidDate = cursor.stringOrNull(5),
+                orderDate = DateOnly.normalize(cursor.stringOrNull(4)),
+                paidDate = DateOnly.normalize(cursor.stringOrNull(5)),
                 orderPaidCents = cursor.longOrNull(6),
                 orderStatus = cursor.stringOrNull(7),
                 note = cursor.stringOrNull(8),
@@ -180,12 +180,6 @@ class RecordsRepository(private val databaseHelper: ShoppingDatabaseHelper) {
             ORDER BY CASE WHEN COALESCE(o.paid_date,o.order_date) IS NULL THEN 1 ELSE 0 END,
                      COALESCE(o.paid_date,o.order_date) DESC, i.created_at DESC
         """.trimIndent()
-        val comparison = product.comparisonQuantity?.toBigDecimalOrNull()?.let { quantity ->
-            product.comparisonUnit?.let { unit -> MeasurementNormalizer.normalizeComparison(quantity, unit) }
-        }
-        val comparisonLabel = if (comparison != null) {
-            "${product.comparisonQuantity!!.toBigDecimal().stripTrailingZeros().toPlainString()}${product.comparisonUnit}"
-        } else null
         return databaseHelper.readableDatabase.rawQuery(
             sql,
             arrayOf(product.productId, product.specification.orEmpty())
@@ -195,20 +189,14 @@ class RecordsRepository(private val databaseHelper: ShoppingDatabaseHelper) {
                     val quantity = cursor.getString(6).toBigDecimalOrNull()
                     val paid = cursor.longOrNull(8)
                     if (quantity == null || quantity <= BigDecimal.ZERO || paid == null) continue
-                    val specification = parseSpecification(cursor.stringOrNull(9), cursor.stringOrNull(7))
-                    val price = PricingCalculator.calculate(paid, quantity, specification)
-                    val rebasedPrice = if (
-                        comparison != null && price.standardPrice != null &&
-                        comparison.unit == price.standardUnit
-                    ) price.standardPrice.multiply(comparison.quantityPerSaleUnit) else price.standardPrice
-                    val rebasedUnit = if (rebasedPrice != null && comparisonLabel != null &&
-                        comparison?.unit == price.standardUnit
-                    ) comparisonLabel else price.standardUnit
+                    val pieceCount = parsePieceCount(cursor.stringOrNull(9))
+                    val saleUnit = cursor.stringOrNull(7)
+                    val price = PricingCalculator.calculate(paid, quantity, pieceCount, saleUnit)
                     add(
                         PriceHistoryEntry(
                             itemId = cursor.getString(0),
                             skuId = cursor.stringOrNull(1),
-                            date = cursor.stringOrNull(2),
+                            date = DateOnly.normalize(cursor.stringOrNull(2)),
                             platform = cursor.stringOrNull(3)?.takeIf(String::isNotBlank) ?: "未知",
                             storeName = cursor.stringOrNull(4),
                             specification = cursor.stringOrNull(5),
@@ -217,8 +205,8 @@ class RecordsRepository(private val databaseHelper: ShoppingDatabaseHelper) {
                             paidAmountCents = paid,
                             packagePrice = price.packagePrice,
                             packageUnit = price.packageUnit,
-                            standardPrice = rebasedPrice,
-                            standardUnit = rebasedUnit
+                            standardPrice = price.standardPrice,
+                            standardUnit = price.standardUnit
                         )
                     )
                 }
@@ -227,60 +215,16 @@ class RecordsRepository(private val databaseHelper: ShoppingDatabaseHelper) {
     }
 
     fun rememberPriceMode(productId: String, mode: String) {
-        require(mode == "standard" || mode == "package")
+        require(mode == "unit" || mode == "piece")
         databaseHelper.writableDatabase.update(
             "products",
             ContentValues().apply {
-                put("preferred_price_mode", mode)
+                put("preferred_price_mode", if (mode == "unit") "package" else "standard")
                 put("updated_at", Instant.now().toString())
             },
             "product_id=?",
             arrayOf(productId)
         )
-    }
-
-    fun updateProduct(
-        productId: String,
-        specification: String?,
-        displayName: String,
-        brand: String?,
-        category: String?,
-        comparisonQuantity: String?,
-        comparisonUnit: String?
-    ): Boolean {
-        require(displayName.isNotBlank())
-        require((comparisonQuantity == null) == (comparisonUnit == null))
-        if (comparisonQuantity != null && comparisonUnit != null) {
-            require(
-                comparisonQuantity.toBigDecimalOrNull()?.let {
-                    MeasurementNormalizer.normalizeComparison(it, comparisonUnit)
-                } != null
-            )
-        }
-        val database = databaseHelper.writableDatabase
-        val now = Instant.now().toString()
-        val changed = database.update(
-            "products",
-            ContentValues().apply {
-                put("display_name", displayName)
-                put("brand", brand)
-                put("category", category)
-                put("updated_at", now)
-            },
-            "product_id=?",
-            arrayOf(productId)
-        ) == 1
-        database.update(
-            "skus",
-            ContentValues().apply {
-                put("comparison_quantity", comparisonQuantity)
-                put("comparison_unit", comparisonUnit)
-                put("updated_at", now)
-            },
-            "product_id=? AND LOWER(TRIM(COALESCE(spec_raw,'')))=LOWER(TRIM(?))",
-            arrayOf(productId, specification.orEmpty())
-        )
-        return changed
     }
 
     fun deleteOrder(orderId: String): Boolean = databaseHelper.writableDatabase.delete(
@@ -303,7 +247,7 @@ class RecordsRepository(private val databaseHelper: ShoppingDatabaseHelper) {
                 put("platform", platform)
                 put("store_name", storeName)
                 put("external_order_no", externalOrderNo)
-                put("paid_date", paidDate)
+                put("paid_date", DateOnly.normalize(paidDate))
                 put("order_paid_cents", orderPaidCents)
                 put("updated_at", Instant.now().toString())
             },
@@ -323,7 +267,78 @@ class RecordsRepository(private val databaseHelper: ShoppingDatabaseHelper) {
         require(name.isNotBlank())
         require(quantity == null || quantity.toBigDecimalOrNull()?.let { it > BigDecimal.ZERO } == true)
         require(paidAmountCents == null || paidAmountCents >= 0)
-        val existing = databaseHelper.readableDatabase.query(
+        val database = databaseHelper.writableDatabase
+        database.beginTransaction()
+        return try {
+            val changed = updateItemInternal(
+                database, itemId, name, specification, quantity, null, paidAmountCents, saleUnit
+            )
+            database.setTransactionSuccessful()
+            changed
+        } finally {
+            database.endTransaction()
+        }
+    }
+
+    fun updateOrderWithItems(
+        orderId: String,
+        platform: String,
+        storeName: String?,
+        externalOrderNo: String?,
+        paidDate: String?,
+        orderPaidCents: Long?,
+        items: List<OrderItemUpdate>
+    ): Boolean {
+        require(platform.isNotBlank())
+        require(orderPaidCents == null || orderPaidCents >= 0)
+        require(items.isNotEmpty())
+        items.forEach {
+            require(it.name.isNotBlank())
+            require(it.quantity == null || it.quantity.toBigDecimalOrNull()?.let { value -> value > BigDecimal.ZERO } == true)
+            require(it.pieceCount == null || it.pieceCount.toBigDecimalOrNull()?.let { value -> value > BigDecimal.ZERO } == true)
+            require(it.paidAmountCents == null || it.paidAmountCents >= 0)
+        }
+        val database = databaseHelper.writableDatabase
+        database.beginTransaction()
+        return try {
+            val now = Instant.now().toString()
+            val orderChanged = database.update(
+                "orders",
+                ContentValues().apply {
+                    put("platform", platform)
+                    put("store_name", storeName)
+                    put("external_order_no", externalOrderNo)
+                    put("paid_date", DateOnly.normalize(paidDate))
+                    put("order_paid_cents", orderPaidCents)
+                    put("updated_at", now)
+                },
+                "order_id=?",
+                arrayOf(orderId)
+            ) == 1
+            val itemChanged = items.all {
+                updateItemInternal(
+                    database, it.itemId, it.name, it.model, it.quantity,
+                    it.pieceCount, it.paidAmountCents, null
+                )
+            }
+            if (orderChanged && itemChanged) database.setTransactionSuccessful()
+            orderChanged && itemChanged
+        } finally {
+            database.endTransaction()
+        }
+    }
+
+    private fun updateItemInternal(
+        database: android.database.sqlite.SQLiteDatabase,
+        itemId: String,
+        name: String,
+        specification: String?,
+        quantity: String?,
+        pieceCount: String?,
+        paidAmountCents: Long?,
+        requestedSaleUnit: String?
+    ): Boolean {
+        val existing = database.query(
             "order_items",
             arrayOf("product_id", "sku_id", "raw_specification", "sale_unit", "specification_snapshot_json"),
             "item_id=?",
@@ -342,58 +357,69 @@ class RecordsRepository(private val databaseHelper: ShoppingDatabaseHelper) {
                 snapshot = cursor.stringOrNull(4)
             )
         }
-        val specificationChanged = existing.specification != specification || existing.saleUnit != saleUnit
+        val saleUnit = requestedSaleUnit ?: existing.saleUnit ?: "份"
+        val productId = resolveEditedProduct(database, name)
         val snapshot = try {
             JSONObject(existing.snapshot ?: "{}").apply {
                 put("raw_specification", specification ?: JSONObject.NULL)
-                put("sale_unit", saleUnit ?: JSONObject.NULL)
+                put("sale_unit", saleUnit)
                 put("source", "user_confirmed")
-                if (specificationChanged) {
-                    put("measurement_type", "unknown")
-                    put("content_per_inner", JSONObject.NULL)
-                    put("content_unit", JSONObject.NULL)
-                    put("base_unit", JSONObject.NULL)
-                    put("base_quantity_per_sale_unit", JSONObject.NULL)
-                    put("inner_unit", JSONObject.NULL)
-                    put("inner_count_per_sale_unit", JSONObject.NULL)
-                }
+                put("measurement_type", "unknown")
+                put("content_per_inner", JSONObject.NULL)
+                put("content_unit", JSONObject.NULL)
+                put("base_unit", JSONObject.NULL)
+                put("base_quantity_per_sale_unit", JSONObject.NULL)
+                put("inner_unit", JSONObject.NULL)
+                put("inner_count_per_sale_unit", pieceCount ?: JSONObject.NULL)
             }.toString()
         } catch (_: Exception) {
             JSONObject().apply {
                 put("raw_specification", specification ?: JSONObject.NULL)
-                put("sale_unit", saleUnit ?: JSONObject.NULL)
+                put("sale_unit", saleUnit)
+                put("inner_count_per_sale_unit", pieceCount ?: JSONObject.NULL)
                 put("source", "user_confirmed")
             }.toString()
         }
-        val database = databaseHelper.writableDatabase
-        database.beginTransaction()
-        return try {
-            val skuId = if (specificationChanged) {
-                resolveEditedSku(database, existing.productId, specification, saleUnit)
-            } else {
-                existing.skuId
-            }
-            val changed = database.update(
-                "order_items",
-                ContentValues().apply {
-                    put("sku_id", skuId)
-                    put("raw_product_name", name)
-                    put("raw_specification", specification)
-                    put("specification_snapshot_json", snapshot)
-                    put("sale_quantity", quantity)
-                    put("sale_unit", saleUnit)
-                    put("paid_amount_cents", paidAmountCents)
-                    put("price_source", "user_confirmed")
-                    put("verification_status", "confirmed")
-                    put("updated_at", Instant.now().toString())
-                },
-                "item_id=?",
-                arrayOf(itemId)
-            ) == 1
-            database.setTransactionSuccessful()
-            changed
-        } finally {
-            database.endTransaction()
+        val skuId = resolveEditedSku(database, productId, specification, saleUnit)
+        return database.update(
+            "order_items",
+            ContentValues().apply {
+                put("product_id", productId)
+                put("sku_id", skuId)
+                put("raw_product_name", name)
+                put("raw_specification", specification)
+                put("specification_snapshot_json", snapshot)
+                put("sale_quantity", quantity)
+                put("sale_unit", saleUnit)
+                put("paid_amount_cents", paidAmountCents)
+                put("price_source", "user_confirmed")
+                put("verification_status", "confirmed")
+                put("updated_at", Instant.now().toString())
+            },
+            "item_id=?",
+            arrayOf(itemId)
+        ) == 1
+    }
+
+    private fun resolveEditedProduct(
+        database: android.database.sqlite.SQLiteDatabase,
+        name: String
+    ): String {
+        database.rawQuery(
+            """SELECT product_id FROM products
+               WHERE lower(trim(COALESCE(display_name,'')))=lower(trim(?))
+                  OR lower(trim(COALESCE(standard_name,'')))=lower(trim(?))
+               ORDER BY created_at LIMIT 1""".trimIndent(),
+            arrayOf(name, name)
+        ).use { if (it.moveToFirst()) return it.getString(0) }
+        val now = Instant.now().toString()
+        return UUID.randomUUID().toString().also { productId ->
+            database.insertOrThrow("products", null, ContentValues().apply {
+                put("product_id", productId)
+                put("display_name", name)
+                put("created_at", now)
+                put("updated_at", now)
+            })
         }
     }
 
@@ -407,8 +433,8 @@ class RecordsRepository(private val databaseHelper: ShoppingDatabaseHelper) {
         database.query(
             "skus",
             arrayOf("sku_id"),
-            "product_id=? AND lower(COALESCE(spec_raw,''))=lower(?) AND COALESCE(sale_unit,'')=?",
-            arrayOf(productId, specification.orEmpty(), saleUnit.orEmpty()),
+            "product_id=? AND lower(trim(COALESCE(spec_raw,'')))=lower(trim(?))",
+            arrayOf(productId, specification.orEmpty()),
             null,
             null,
             null,
@@ -456,15 +482,12 @@ class RecordsRepository(private val databaseHelper: ShoppingDatabaseHelper) {
         }
     }
 
-    private fun parseSpecification(json: String?, saleUnit: String?): SaleSpecification? {
+    private fun parsePieceCount(json: String?): BigDecimal? {
         if (json.isNullOrBlank()) return null
         return try {
             val value = JSONObject(json)
-            val content = value.optString("content_per_inner").toBigDecimalOrNull() ?: return null
-            val contentUnit = value.optString("content_unit").takeIf { it.isNotBlank() } ?: return null
-            val innerCount = value.optString("inner_count_per_sale_unit").toBigDecimalOrNull() ?: return null
-            val unit = value.optString("sale_unit").takeIf { it.isNotBlank() } ?: saleUnit ?: return null
-            SaleSpecification(content, contentUnit, innerCount, unit)
+            value.optString("inner_count_per_sale_unit").toBigDecimalOrNull()
+                ?.takeIf { it > BigDecimal.ZERO }
         } catch (_: Exception) {
             null
         }
@@ -473,7 +496,7 @@ class RecordsRepository(private val databaseHelper: ShoppingDatabaseHelper) {
     private fun Cursor.toOrderSummary() = OrderSummary(
         orderId = getString(0),
         platform = getString(1),
-        displayDate = stringOrNull(2),
+        displayDate = DateOnly.normalize(stringOrNull(2)),
         storeName = stringOrNull(3),
         externalOrderNo = stringOrNull(4),
         orderPaidCents = longOrNull(5),
@@ -491,6 +514,7 @@ class RecordsRepository(private val databaseHelper: ShoppingDatabaseHelper) {
         rawSpecification = stringOrNull(5),
         saleQuantity = stringOrNull(6),
         saleUnit = stringOrNull(7),
+        pieceCount = parsePieceCount(stringOrNull(10))?.stripTrailingZeros()?.toPlainString(),
         paidAmountCents = longOrNull(8),
         priceSource = stringOrNull(9),
         specificationSnapshotJson = stringOrNull(10)

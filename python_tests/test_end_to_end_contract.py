@@ -106,31 +106,31 @@ class RecordsAndSettingsUiTests(unittest.TestCase):
     def test_records_support_edit_delete_and_both_price_modes(self) -> None:
         controller = source("ui/RecordsController.kt")
         for call in (
-            "repository.updateOrder",
-            "repository.updateItem",
+            "repository.updateOrderWithItems",
             "repository.deleteOrder",
-            "repository.deleteItem",
-            'priceMode = "standard"',
-            'priceMode = "package"',
+            'priceMode = "piece"',
+            'priceMode = "unit"',
         ):
             self.assertIn(call, controller)
+        self.assertIn('"编辑订单和商品"', controller)
 
     def test_records_default_to_product_spec_groups_and_labeled_edit_fields(self) -> None:
         controller = source("ui/RecordsController.kt")
         repository = source("data/RecordsRepository.kt")
         self.assertIn("private var mode = Mode.PRODUCTS", controller)
-        self.assertIn('labels = listOf("商品名称", "规格型号", "购买数量"', controller)
-        self.assertIn('"基础计价数量", "基础计价单位"', controller)
+        self.assertIn('"商品 $number · 商品名称"', controller)
+        self.assertIn('"商品 $number · 型号（可留空）"', controller)
+        self.assertIn('"商品 $number · 每份件数（可留空）"', controller)
         self.assertIn("GROUP BY p.product_id", repository)
         self.assertIn("i.raw_specification", repository)
-        self.assertIn("comparison_quantity", repository)
 
-    def test_system_back_returns_from_record_detail_before_exiting(self) -> None:
+    def test_navigation_uses_visible_top_left_back_buttons(self) -> None:
         activity = source("MainActivity.kt")
         controller = source("ui/RecordsController.kt")
         self.assertIn("onBackPressedDispatcher.addCallback", activity)
-        self.assertIn("recordsController.handleBack()", activity)
-        self.assertIn("fun handleBack(): Boolean", controller)
+        self.assertIn("navigation only uses visible top-left buttons", activity)
+        self.assertIn("backButton.setOnClickListener { showList() }", controller)
+        self.assertIn("R.id.recognitionBackButton", activity)
 
     def test_record_detail_routes_are_guarded_from_bad_local_data(self) -> None:
         controller = source("ui/RecordsController.kt")

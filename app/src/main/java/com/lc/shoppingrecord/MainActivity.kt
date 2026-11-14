@@ -130,14 +130,7 @@ class MainActivity : ComponentActivity() {
         navigation.forEachIndexed { index, item -> item.setOnClickListener { showPage(index) } }
         onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
             override fun handleOnBackPressed() {
-                when {
-                    currentPage == PAGE_RECORDS && recordsController.handleBack() -> Unit
-                    currentPage != PAGE_RECOGNIZE -> showPage(PAGE_RECOGNIZE)
-                    else -> {
-                        isEnabled = false
-                        onBackPressedDispatcher.onBackPressed()
-                    }
-                }
+                // Product requirement: navigation only uses visible top-left buttons and bottom tabs.
             }
         })
 
@@ -155,6 +148,7 @@ class MainActivity : ComponentActivity() {
         }
         findViewById<View>(R.id.startRecognitionButton).setOnClickListener { requestRecognition() }
         findViewById<View>(R.id.manualEntryButton).setOnClickListener { startManualEntry() }
+        findViewById<View>(R.id.recognitionBackButton).setOnClickListener { cancelRecognitionReview() }
         findViewById<View>(R.id.cancelRecognitionButton).setOnClickListener {
             recognitionCoordinator.cancel()
         }
@@ -220,6 +214,15 @@ class MainActivity : ComponentActivity() {
             ),
             manual = true
         )
+    }
+
+    private fun cancelRecognitionReview() {
+        pendingRecognitionDrafts.clear()
+        activeTaskId?.let(taskRepository::deleteTask)
+        activeTaskId = null
+        confirmedDraftCount = 0
+        reviewController.hide()
+        renderSelectedImages()
     }
 
     private fun restoreActiveTaskIfNeeded() {
@@ -371,9 +374,7 @@ class MainActivity : ComponentActivity() {
         val recent = history.firstOrNull()
         val priceText = when {
             recent?.packagePrice != null ->
-                "¥${recent.packagePrice.setScale(2, RoundingMode.HALF_UP)}/${recent.packageUnit ?: product.saleUnit ?: "件"}"
-            recent?.standardPrice != null ->
-                "¥${recent.standardPrice.setScale(2, RoundingMode.HALF_UP)}/${recent.standardUnit.orEmpty()}"
+                "¥${recent.packagePrice.setScale(2, RoundingMode.HALF_UP)}/份"
             else -> getString(R.string.amount_unknown)
         }
         return LinearLayout(this).apply {
@@ -397,7 +398,7 @@ class MainActivity : ComponentActivity() {
                     setTypeface(typeface, Typeface.BOLD)
                 })
                 addView(TextView(this@MainActivity).apply {
-                    text = product.specification ?: "规格待确认"
+                    text = product.specification ?: "型号待确认"
                     textSize = 12f
                     setTextColor(getColor(R.color.muted))
                     setPadding(0, dp(4), 0, 0)

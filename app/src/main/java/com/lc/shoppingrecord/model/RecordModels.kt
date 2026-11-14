@@ -36,9 +36,19 @@ data class OrderItemRecord(
     val rawSpecification: String?,
     val saleQuantity: String?,
     val saleUnit: String?,
+    val pieceCount: String?,
     val paidAmountCents: Long?,
     val priceSource: String?,
     val specificationSnapshotJson: String?
+)
+
+data class OrderItemUpdate(
+    val itemId: String,
+    val name: String,
+    val model: String?,
+    val quantity: String?,
+    val pieceCount: String?,
+    val paidAmountCents: Long?
 )
 
 data class ProductSummary(

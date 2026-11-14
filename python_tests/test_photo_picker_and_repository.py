@@ -95,12 +95,8 @@ class InlineRecognitionReviewTests(unittest.TestCase):
             {
                 "@+id/itemProductName",
                 "@+id/itemRawSpecification",
-                "@+id/itemContentPerInner",
-                "@+id/itemContentUnit",
                 "@+id/itemInnerCount",
-                "@+id/itemInnerUnit",
                 "@+id/itemPurchaseQuantity",
-                "@+id/itemSaleUnit",
                 "@+id/itemPaidAmount",
             },
             edit_ids,

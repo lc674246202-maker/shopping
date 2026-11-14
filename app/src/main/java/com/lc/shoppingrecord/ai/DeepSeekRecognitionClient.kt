@@ -152,16 +152,13 @@ class DeepSeekRecognitionClient(private val contentResolver: ContentResolver) {
             "order_date":null,"paid_date":null,"order_paid_yuan":null,
             "order_original_yuan":null,"discount_yuan":null,"shipping_yuan":null,
             "order_status":null,"items":[{"line_key":"同一商品行的稳定位置标识","raw_product_name":"截图可见名称",
-            "is_name_truncated":null,"standard_name":null,"brand":null,"category":null,
-            "raw_specification":null,"measurement_type":"unknown","content_per_inner":null,
-            "content_unit":null,"inner_count_per_sale_unit":null,"inner_unit":null,
-            "sale_unit":null,"purchase_quantity":null,"line_original_yuan":null,
+            "raw_specification":null,"inner_count_per_sale_unit":null,
+            "sale_unit":null,"purchase_quantity":null,
             "line_paid_yuan":null,"price_source":"observed或unknown或conflict",
             "evidence":{"image_indexes":[],"note":null}}]}]}
-            金额使用人民币元的十进制数字；日期保持截图可确认的 ISO 格式，否则 null。
-            measurement_type 仅可为 weight、volume、count、length、area、none、unknown。
-            散装或单层规格若没有内包装层，可将 inner_count_per_sale_unit 设为 1，并填写每销售单位的明确含量；没有证据仍填 null。
-            不计算包装单价或标准单价，它们由本地程序计算。
+            金额使用人民币元的十进制数字；订单日期与付款日期只输出 YYYY-MM-DD，不得包含时、分、秒；无法确认具体日期则填 null。
+            raw_specification 只填写商品型号。inner_count_per_sale_unit 只填写每个购买单位包含的件数，例如一箱24盒填24。
+            不计算商品单价或商品件价，它们由本地程序按“实付金额÷购买数量”和“商品单价÷件数”计算。
         """.trimIndent()
     }
 }

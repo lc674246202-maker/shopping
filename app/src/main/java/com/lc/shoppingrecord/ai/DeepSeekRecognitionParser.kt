@@ -2,6 +2,7 @@ package com.lc.shoppingrecord.ai
 
 import com.lc.shoppingrecord.model.ConfirmedOrderDraft
 import com.lc.shoppingrecord.model.ConfirmedOrderItemDraft
+import com.lc.shoppingrecord.model.DateOnly
 import org.json.JSONArray
 import org.json.JSONException
 import org.json.JSONObject
@@ -74,8 +75,8 @@ object DeepSeekRecognitionParser {
             platform = order.stringOrNull("platform") ?: "未知",
             externalOrderNo = order.stringOrNull("external_order_no"),
             storeName = order.stringOrNull("store_name"),
-            orderDate = order.stringOrNull("order_date"),
-            paidDate = order.stringOrNull("paid_date"),
+            orderDate = DateOnly.normalize(order.stringOrNull("order_date")),
+            paidDate = DateOnly.normalize(order.stringOrNull("paid_date")),
             orderPaidCents = order.moneyCentsOrNull("order_paid_yuan"),
             orderOriginalCents = order.moneyCentsOrNull("order_original_yuan"),
             discountCents = order.moneyCentsOrNull("discount_yuan"),

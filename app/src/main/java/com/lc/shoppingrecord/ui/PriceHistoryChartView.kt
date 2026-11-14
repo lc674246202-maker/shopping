@@ -6,6 +6,7 @@ import android.graphics.Paint
 import android.graphics.Path
 import android.view.View
 import com.lc.shoppingrecord.R
+import com.lc.shoppingrecord.model.DateOnly
 import java.math.BigDecimal
 import kotlin.math.max
 
@@ -34,7 +35,7 @@ class PriceHistoryChartView(context: Context) : View(context) {
 
     fun setValues(values: List<Pair<String?, BigDecimal>>) {
         points = values.takeLast(8).map { (label, value) ->
-            (label?.takeLast(5) ?: "--") to value.toFloat()
+            DateOnly.shortLabel(label) to value.toFloat()
         }
         invalidate()
     }

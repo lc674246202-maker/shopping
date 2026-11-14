@@ -4,6 +4,7 @@ import android.content.ContentValues
 import android.database.sqlite.SQLiteDatabase
 import com.lc.shoppingrecord.model.ConfirmedOrderDraft
 import com.lc.shoppingrecord.model.ConfirmedOrderItemDraft
+import com.lc.shoppingrecord.model.DateOnly
 import com.lc.shoppingrecord.model.SaveOrderResult
 import org.json.JSONObject
 import java.math.BigDecimal
@@ -149,11 +150,11 @@ class OrderRepository(private val databaseHelper: ShoppingDatabaseHelper) {
 
     private fun findPossibleDuplicate(draft: ConfirmedOrderDraft): String? {
         if (!draft.externalOrderNo.isNullOrBlank()) return null
-        val date = draft.paidDate ?: draft.orderDate ?: return null
+        val date = DateOnly.normalize(draft.paidDate ?: draft.orderDate) ?: return null
         val amount = draft.orderPaidCents ?: return null
         databaseHelper.readableDatabase.rawQuery(
             """SELECT order_id FROM orders
-               WHERE platform=? AND COALESCE(paid_date,order_date)=? AND order_paid_cents=?
+               WHERE platform=? AND substr(COALESCE(paid_date,order_date),1,10)=? AND order_paid_cents=?
                LIMIT 1""".trimIndent(),
             arrayOf(draft.platform, date, amount.toString())
         ).use { cursor ->
@@ -170,8 +171,8 @@ class OrderRepository(private val databaseHelper: ShoppingDatabaseHelper) {
         put("platform", draft.platform)
         put("external_order_no", draft.externalOrderNo)
         put("store_name", draft.storeName)
-        put("order_date", draft.orderDate)
-        put("paid_date", draft.paidDate)
+        put("order_date", DateOnly.normalize(draft.orderDate))
+        put("paid_date", DateOnly.normalize(draft.paidDate))
         put("order_paid_cents", draft.orderPaidCents)
         put("order_original_cents", draft.orderOriginalCents)
         put("discount_cents", draft.discountCents)

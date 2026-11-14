@@ -42,8 +42,8 @@
     <string name="sale_unit_label">销售单位</string>
     <string name="line_paid_label">商品实付（元）</string>
     <string name="unknown_field_hint">未识别，保持空白</string>
-    <string name="package_price_label">按销售包装单价 · 自动计算</string>
-    <string name="standard_price_label">标准单价 · 自动计算</string>
+    <string name="package_price_label">商品单价 · 实付金额 ÷ 购买数量</string>
+    <string name="standard_price_label">商品件价 · 商品单价 ÷ 件数</string>
     <string name="price_waiting">待确认</string>
     <string name="price_unavailable">规格不足，无法计算</string>
     <string name="save_record">保存记录</string>
@@ -65,8 +65,8 @@
     <string name="delete">删除</string>
     <string name="delete_order_confirm">删除这笔订单及其购买明细？其他订单共享的商品档案不会被删除。</string>
     <string name="delete_item_confirm">删除这条商品明细？历史价格会同步更新。</string>
-    <string name="standard_price_mode">标准单位价</string>
-    <string name="package_price_mode">按件价</string>
+    <string name="standard_price_mode">商品件价</string>
+    <string name="package_price_mode">商品单价</string>
     <string name="recent_price">最近购买</string>
     <string name="lowest_price">历史最低</string>
     <string name="no_valid_price">没有可参与比较的有效价格记录</string>
@@ -80,5 +80,5 @@
     <string name="manual_entry">手动添加</string>
     <string name="recent_records">最近记录</string>
     <string name="confirm_purchase_information">确认购买信息</string>
-    <string name="app_version">v0.3.0</string>
+    <string name="app_version">v0.4.0</string>
 </resources>

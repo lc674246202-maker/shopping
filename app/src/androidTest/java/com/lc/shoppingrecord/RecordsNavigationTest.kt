@@ -65,7 +65,7 @@ class RecordsNavigationTest {
                 activity.findViewById<AutoCompleteTextView>(R.id.itemProductName).setText("测试牛奶")
                 assertEquals("250mL×24盒", activity.findViewById<EditText>(R.id.itemRawSpecification).text.toString())
                 assertEquals("1", activity.findViewById<EditText>(R.id.itemPurchaseQuantity).text.toString())
-                assertEquals("箱", activity.findViewById<EditText>(R.id.itemSaleUnit).text.toString())
+                assertEquals("24", activity.findViewById<EditText>(R.id.itemInnerCount).text.toString())
                 assertEquals("43.20", activity.findViewById<EditText>(R.id.itemPaidAmount).text.toString())
             }
         }
@@ -97,6 +97,11 @@ class RecordsNavigationTest {
                 assertEquals(
                     View.VISIBLE,
                     activity.findViewById<View>(R.id.recognitionResultContainer).visibility
+                )
+                activity.findViewById<View>(R.id.recognitionBackButton).performClick()
+                assertEquals(
+                    View.VISIBLE,
+                    activity.findViewById<View>(R.id.recognitionHomeContainer).visibility
                 )
             }
         }
@@ -131,20 +136,13 @@ class RecordsNavigationTest {
                 val groups = records.listProducts()
                 assertEquals(1, groups.size)
                 assertEquals(2, groups.single().purchaseCount)
-                val group = groups.single()
-                records.updateProduct(
-                    group.productId,
-                    group.specification,
-                    group.displayName,
-                    group.brand,
-                    group.category,
-                    "100",
-                    "mL"
-                )
-                val updatedGroup = records.listProducts().single()
-                val history = records.priceHistory(updatedGroup)
+                val history = records.priceHistory(groups.single())
                 assertEquals(2, history.size)
-                assertEquals("100mL", history.first().standardUnit)
+                assertEquals("件", history.first().standardUnit)
+                assertEquals(
+                    setOf("1.800000000000", "2.000000000000"),
+                    history.map { it.standardPrice!!.toPlainString() }.toSet()
+                )
             }
         }
     }
@@ -179,7 +177,7 @@ class RecordsNavigationTest {
                 list.getChildAt(0).performClick()
                 assertEquals(View.VISIBLE, activity.findViewById<View>(R.id.recordDetailContainer).visibility)
 
-                activity.onBackPressedDispatcher.onBackPressed()
+                activity.findViewById<View>(R.id.recordsBackButton).performClick()
                 assertEquals(View.GONE, activity.findViewById<View>(R.id.recordDetailContainer).visibility)
                 activity.findViewById<View>(R.id.showOrdersButton).performClick()
                 assertEquals(1, list.childCount)

@@ -11,7 +11,7 @@ python3 -m unittest discover -s python_tests -v
 覆盖范围：
 
 - PRD 单价与单位换算用例；
-- 标准单位价与相同 SKU 按件价的比较边界；
+- 商品单价与商品件价的比较边界；
 - SQLite 五张核心表、字段类型、外键、索引和 NULL 语义；
 - Android 权限、备份、API 基线和三入口配置；
 - 浏览器原型的当前页编辑与商品历史路由静态契约。

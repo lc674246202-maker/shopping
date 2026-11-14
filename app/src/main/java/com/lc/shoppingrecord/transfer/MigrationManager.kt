@@ -33,7 +33,7 @@ class MigrationManager(private val databaseHelper: ShoppingDatabaseHelper) {
         output.bufferedWriter(Charsets.UTF_8).use { writer ->
             writer.write("\uFEFF平台,购买日期,店铺,订单号,商品,规格,数量,销售单位,商品实付（元）\n")
             val sql = """
-                SELECT o.platform,COALESCE(o.paid_date,o.order_date),o.store_name,o.external_order_no,
+                SELECT o.platform,substr(COALESCE(o.paid_date,o.order_date),1,10),o.store_name,o.external_order_no,
                        i.raw_product_name,i.raw_specification,i.sale_quantity,i.sale_unit,i.paid_amount_cents
                 FROM orders o JOIN order_items i ON i.order_id=o.order_id
                 ORDER BY COALESCE(o.paid_date,o.order_date) DESC,o.created_at DESC,i.created_at
@@ -57,7 +57,7 @@ class MigrationManager(private val databaseHelper: ShoppingDatabaseHelper) {
         val manifest = JSONObject().apply {
             put("format_version", FORMAT_VERSION)
             put("exported_at", Instant.now().toString())
-            put("app_version", "0.2.0")
+            put("app_version", "0.4.0")
             put("counts", JSONObject().apply {
                 TABLE_FILES.forEach { (table, filename) ->
                     put(table, JSONArray(String(files.getValue(filename), Charsets.UTF_8)).length())

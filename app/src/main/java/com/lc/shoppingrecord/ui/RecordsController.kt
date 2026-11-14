@@ -22,6 +22,7 @@ import com.lc.shoppingrecord.R
 import com.lc.shoppingrecord.data.RecordsRepository
 import com.lc.shoppingrecord.model.OrderDetail
 import com.lc.shoppingrecord.model.OrderItemRecord
+import com.lc.shoppingrecord.model.OrderItemUpdate
 import com.lc.shoppingrecord.model.OrderSummary
 import com.lc.shoppingrecord.model.PriceHistoryEntry
 import com.lc.shoppingrecord.model.ProductSummary
@@ -143,20 +144,14 @@ class RecordsController(
         listContainer.removeAllViews()
         products.forEach { product ->
             val history = runCatching { repository.priceHistory(product) }.getOrDefault(emptyList())
-            val standardUnit = history.firstNotNullOfOrNull { it.standardUnit }
-            val comparable = if (standardUnit != null) {
-                history.filter { it.standardPrice != null && it.standardUnit == standardUnit }
-            } else {
-                history.filter { it.packagePrice != null }
-            }
+            val comparable = history.filter { it.packagePrice != null }
             val latestText = comparable.firstOrNull()?.let { entry ->
-                if (standardUnit != null) "¥${formatPrice(entry.standardPrice!!)}/$standardUnit"
-                else "¥${formatPrice(entry.packagePrice!!)}/${entry.packageUnit ?: product.saleUnit ?: "件"}"
+                "¥${formatPrice(entry.packagePrice!!)}/份"
             } ?: activity.getString(R.string.amount_unknown)
             val lowestText = comparable.minByOrNull { entry ->
-                entry.standardPrice ?: entry.packagePrice ?: BigDecimal.valueOf(Long.MAX_VALUE)
+                entry.packagePrice ?: BigDecimal.valueOf(Long.MAX_VALUE)
             }?.let { entry ->
-                val value = entry.standardPrice ?: entry.packagePrice
+                val value = entry.packagePrice
                 value?.let { "最低 ¥${formatPrice(it)}" }
             }
             listContainer.addView(card().apply {
@@ -166,7 +161,7 @@ class RecordsController(
                     addView(LinearLayout(activity).apply {
                         orientation = LinearLayout.VERTICAL
                         addView(title(product.displayName))
-                        addView(body(product.specification ?: "规格待确认"))
+                        addView(body(product.specification ?: "型号待确认"))
                         addView(body("共 ${product.purchaseCount} 次购买${lowestText?.let { " · $it" }.orEmpty()}"))
                     }, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
                     addView(LinearLayout(activity).apply {
@@ -222,7 +217,7 @@ class RecordsController(
             detailContainer.addView(orderItemCard(index, item))
         }
         detailContainer.addView(actionRow(
-            "编辑订单" to { editOrder(order) },
+            "编辑订单和商品" to { editOrderAndItems(order) },
             activity.getString(R.string.delete) to { confirmDeleteOrder(order.orderId) }
         ))
         scrollToTop()
@@ -231,16 +226,16 @@ class RecordsController(
     private fun orderItemCard(index: Int, item: OrderItemRecord) = card().apply {
         addView(body("商品 ${index + 1}"))
         addView(title(item.rawProductName))
-        addView(body(item.rawSpecification ?: "规格待确认"))
+        addView(body(item.rawSpecification ?: "型号待确认"))
         addView(detailRow("购买数量", "${item.saleQuantity ?: "待确认"}${item.saleUnit.orEmpty()}"))
+        addView(detailRow("商品规格", item.pieceCount?.let { "每份 $it 件" } ?: "待确认"))
         addView(detailRow("实付价格", money(item.paidAmountCents), emphasize = true))
-        val price = item.saleQuantity?.toBigDecimalOrNull()?.takeIf { it > BigDecimal.ZERO }
+        val unitPrice = item.saleQuantity?.toBigDecimalOrNull()?.takeIf { it > BigDecimal.ZERO }
             ?.let { quantity -> item.paidAmountCents?.let { BigDecimal.valueOf(it, 2).divide(quantity, 4, RoundingMode.HALF_UP) } }
-        addView(detailRow("按件单价", price?.let { "¥${formatPrice(it)}/${item.saleUnit ?: "件"}" } ?: "待确认"))
-        addView(actionRow(
-            activity.getString(R.string.edit) to { editItem(item) },
-            activity.getString(R.string.delete) to { confirmDeleteItem(item) }
-        ))
+        val piecePrice = item.pieceCount?.toBigDecimalOrNull()?.takeIf { it > BigDecimal.ZERO }
+            ?.let { pieces -> unitPrice?.divide(pieces, 4, RoundingMode.HALF_UP) }
+        addView(detailRow("商品单价", unitPrice?.let { "¥${formatPrice(it)}/份" } ?: "待确认"))
+        addView(detailRow("商品件价", piecePrice?.let { "¥${formatPrice(it)}/件" } ?: "待确认"))
     }
 
     private fun openProductDetail(product: ProductSummary) {
@@ -259,13 +254,12 @@ class RecordsController(
         enterDetail(product.displayName)
         val header = card().apply {
             addView(TextView(activity).apply {
-                text = product.specification ?: "规格待确认"
+                text = product.specification ?: "型号待确认"
                 textSize = 13f
                 setTextColor(activity.getColor(R.color.green_dark))
                 background = activity.getDrawable(R.drawable.pill_background)
             })
             addView(body(listOfNotNull(product.brand, product.category).joinToString(" · ").ifBlank { "未分类" }))
-            addView(actionRow("修改标准单位" to { editProduct(product) }))
         }
         detailContainer.addView(header)
         val controls = LinearLayout(activity).apply {
@@ -292,12 +286,14 @@ class RecordsController(
         val resultArea = LinearLayout(activity).apply { orientation = LinearLayout.VERTICAL }
         detailContainer.addView(resultArea)
 
-        var priceMode = product.preferredPriceMode
-            ?: if (history.any { it.standardPrice != null }) "standard" else "package"
+        var priceMode = when (product.preferredPriceMode) {
+            "piece", "standard" -> "piece"
+            else -> "unit"
+        }
         fun rerender() {
             try {
-                standardButton.isSelected = priceMode == "standard"
-                packageButton.isSelected = priceMode == "package"
+                standardButton.isSelected = priceMode == "piece"
+                packageButton.isSelected = priceMode == "unit"
                 renderHistory(resultArea, history, priceMode)
                 runCatching { repository.rememberPriceMode(product.productId, priceMode) }
                     .onFailure { Log.w(TAG, "Unable to remember price display mode", it) }
@@ -305,8 +301,8 @@ class RecordsController(
                 showDetailError(error)
             }
         }
-        standardButton.setOnClickListener { priceMode = "standard"; rerender() }
-        packageButton.setOnClickListener { priceMode = "package"; rerender() }
+        standardButton.setOnClickListener { priceMode = "piece"; rerender() }
+        packageButton.setOnClickListener { priceMode = "unit"; rerender() }
         rerender()
         scrollToTop()
     }
@@ -317,27 +313,22 @@ class RecordsController(
         priceMode: String
     ) {
         target.removeAllViews()
-        val candidates = if (priceMode == "package") {
+        val candidates = if (priceMode == "unit") {
             all.filter { it.packagePrice != null }
         } else {
-            val unit = all.firstNotNullOfOrNull { it.standardUnit }
-            all.filter { it.standardPrice != null && it.standardUnit == unit }
+            all.filter { it.standardPrice != null }
         }
         if (candidates.isEmpty()) {
             target.addView(body(activity.getString(R.string.no_valid_price)))
             return
         }
-        fun value(entry: PriceHistoryEntry) = if (priceMode == "package") entry.packagePrice!! else entry.standardPrice!!
-        fun unit(entry: PriceHistoryEntry) = if (priceMode == "package") entry.packageUnit else entry.standardUnit
+        fun value(entry: PriceHistoryEntry) = if (priceMode == "unit") entry.packagePrice!! else entry.standardPrice!!
+        fun unit(entry: PriceHistoryEntry) = if (priceMode == "unit") "份" else "件"
         val recent = candidates.first()
         val lowest = candidates.minBy(::value)
         target.addView(card().apply {
-            addView(body(if (priceMode == "standard") "当前标准单位" else "当前计价方式"))
-            addView(title(if (priceMode == "standard") {
-                unit(recent).orEmpty()
-            } else {
-                "按销售包装"
-            }))
+            addView(body("当前计价方式"))
+            addView(title(if (priceMode == "unit") "商品单价" else "商品件价"))
             addView(LinearLayout(activity).apply {
                 orientation = LinearLayout.HORIZONTAL
                 addView(metric(activity.getString(R.string.recent_price), "¥${formatPrice(value(recent))}/${unit(recent)}"),
@@ -361,7 +352,7 @@ class RecordsController(
                         orientation = LinearLayout.VERTICAL
                         addView(title(entry.date ?: "日期待确认").apply { textSize = 15f })
                         addView(body("${entry.platform}${entry.storeName?.let { " · $it" }.orEmpty()}"))
-                        addView(body(entry.specification ?: "规格待确认"))
+                        addView(body(entry.specification ?: "型号待确认"))
                     }, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
                     addView(title("¥${formatPrice(value(entry))}/${unit(entry)}").apply {
                         textSize = 15f
@@ -372,109 +363,88 @@ class RecordsController(
         }
     }
 
-    private fun editOrder(order: OrderDetail) {
-        val form = form(
-            labels = listOf("平台", "店铺", "订单号", "付款日期", "整单实付金额（元）"),
-            values = listOf(order.platform, order.storeName, order.externalOrderNo, order.paidDate, centsToYuan(order.orderPaidCents)),
-            decimalIndexes = setOf(4)
+    private fun editOrderAndItems(order: OrderDetail) {
+        val labels = mutableListOf("平台", "店铺", "订单号", "购买日期", "整单实付金额（元）")
+        val values = mutableListOf<String?>(
+            order.platform,
+            order.storeName,
+            order.externalOrderNo,
+            order.paidDate,
+            centsToYuan(order.orderPaidCents)
         )
+        val decimalIndexes = mutableSetOf(4)
+        order.items.forEachIndexed { index, item ->
+            val number = index + 1
+            val start = values.size
+            labels += listOf(
+                "商品 $number · 商品名称",
+                "商品 $number · 型号（可留空）",
+                "商品 $number · 购买数量",
+                "商品 $number · 每份件数（可留空）",
+                "商品 $number · 实付金额（元）"
+            )
+            values += listOf(
+                item.rawProductName,
+                item.rawSpecification,
+                item.saleQuantity,
+                item.pieceCount,
+                centsToYuan(item.paidAmountCents)
+            )
+            decimalIndexes += start + 2
+            decimalIndexes += start + 3
+            decimalIndexes += start + 4
+        }
+        val form = form(labels, values, decimalIndexes)
+        val scroll = ScrollView(activity).apply {
+            addView(form.first)
+        }
         AlertDialog.Builder(activity)
-            .setTitle("编辑订单")
-            .setView(form.first)
+            .setTitle("编辑订单和商品")
+            .setView(scroll)
             .setNegativeButton(R.string.cancel, null)
             .setPositiveButton("保存") { _, _ ->
                 val fields = form.second
-                val amount = parseMoney(fields[4].text.toString())
-                if (fields[0].text.isNullOrBlank() || (fields[4].text.isNotBlank() && amount == null)) {
-                    Toast.makeText(activity, "请检查平台和金额", Toast.LENGTH_LONG).show()
-                } else {
-                    repository.updateOrder(
-                        order.orderId,
-                        fields[0].text.toString().trim(),
-                        nullable(fields[1]), nullable(fields[2]), nullable(fields[3]), amount
-                    )
-                    openOrderDetail(order.orderId)
+                val platform = fields[0].text.toString().trim()
+                val orderPaid = parseMoney(fields[4].text.toString())
+                if (platform.isEmpty() || (fields[4].text.isNotBlank() && orderPaid == null)) {
+                    Toast.makeText(activity, "请检查平台和整单实付金额", Toast.LENGTH_LONG).show()
+                    return@setPositiveButton
                 }
-            }.show()
-    }
-
-    private fun editProduct(product: ProductSummary) {
-        val form = form(
-            labels = listOf("商品名称", "品牌", "分类", "基础计价数量", "基础计价单位"),
-            values = listOf(
-                product.displayName,
-                product.brand,
-                product.category,
-                product.comparisonQuantity,
-                product.comparisonUnit
-            ),
-            decimalIndexes = setOf(3)
-        )
-        AlertDialog.Builder(activity)
-            .setTitle("编辑商品与计价单位")
-            .setView(form.first)
-            .setNegativeButton(R.string.cancel, null)
-            .setPositiveButton("保存") { _, _ ->
-                val fields = form.second
-                val displayName = fields[0].text.toString().trim()
-                val comparisonQuantity = nullable(fields[3])
-                val comparisonUnit = nullable(fields[4])
-                val comparisonValid = (comparisonQuantity == null && comparisonUnit == null) ||
-                    (comparisonQuantity?.toBigDecimalOrNull()?.let { it > BigDecimal.ZERO } == true && comparisonUnit != null)
-                if (displayName.isEmpty() || !comparisonValid) {
-                    Toast.makeText(activity, "请填写商品名称；基础计价数量和单位需同时填写", Toast.LENGTH_LONG).show()
-                } else {
-                    try {
-                        repository.updateProduct(
-                            product.productId,
-                            product.specification,
-                            displayName,
-                            nullable(fields[1]),
-                            nullable(fields[2]),
-                            comparisonQuantity,
-                            comparisonUnit
-                        )
-                    } catch (_: IllegalArgumentException) {
-                        Toast.makeText(activity, "基础计价单位不受支持，请使用 g、kg、mL、L、抽、张、个等单位", Toast.LENGTH_LONG).show()
+                val updates = mutableListOf<OrderItemUpdate>()
+                order.items.forEachIndexed { index, item ->
+                    val start = 5 + index * 5
+                    val name = fields[start].text.toString().trim()
+                    val quantity = nullable(fields[start + 2])
+                    val pieceCount = nullable(fields[start + 3])
+                    val paid = parseMoney(fields[start + 4].text.toString())
+                    val validQuantity = quantity == null ||
+                        quantity.toBigDecimalOrNull()?.let { it > BigDecimal.ZERO } == true
+                    val validPieces = pieceCount == null ||
+                        pieceCount.toBigDecimalOrNull()?.let { it > BigDecimal.ZERO } == true
+                    val validPaid = fields[start + 4].text.isBlank() || paid != null
+                    if (name.isEmpty() || !validQuantity || !validPieces || !validPaid) {
+                        Toast.makeText(activity, "请检查第 ${index + 1} 个商品的名称、数量、件数和金额", Toast.LENGTH_LONG).show()
                         return@setPositiveButton
                     }
-                    openProductDetail(product.copy(
-                        displayName = displayName,
-                        brand = nullable(fields[1]),
-                        category = nullable(fields[2]),
-                        comparisonQuantity = comparisonQuantity,
-                        comparisonUnit = comparisonUnit
-                    ))
-                }
-            }.show()
-    }
-
-    private fun editItem(item: OrderItemRecord) {
-        val form = form(
-            labels = listOf("商品名称", "规格型号", "购买数量", "购买单位", "商品实付金额（元）"),
-            values = listOf(item.rawProductName, item.rawSpecification, item.saleQuantity, item.saleUnit, centsToYuan(item.paidAmountCents)),
-            decimalIndexes = setOf(2, 4)
-        )
-        AlertDialog.Builder(activity)
-            .setTitle("编辑商品明细")
-            .setView(form.first)
-            .setNegativeButton(R.string.cancel, null)
-            .setPositiveButton("保存") { _, _ ->
-                val fields = form.second
-                val amount = parseMoney(fields[4].text.toString())
-                val quantity = nullable(fields[2])
-                if (fields[0].text.isNullOrBlank() ||
-                    (quantity != null && quantity.toBigDecimalOrNull()?.let { it > BigDecimal.ZERO } != true) ||
-                    (fields[4].text.isNotBlank() && amount == null)
-                ) {
-                    Toast.makeText(activity, "请检查名称、数量和金额", Toast.LENGTH_LONG).show()
-                } else {
-                    repository.updateItem(
-                        item.itemId, fields[0].text.toString().trim(), nullable(fields[1]),
-                        quantity, nullable(fields[3]), amount
+                    updates += OrderItemUpdate(
+                        itemId = item.itemId,
+                        name = name,
+                        model = nullable(fields[start + 1]),
+                        quantity = quantity,
+                        pieceCount = pieceCount,
+                        paidAmountCents = paid
                     )
-                    openOrderDetail(item.orderId)
                 }
+                repository.updateOrderWithItems(
+                    order.orderId,
+                    platform,
+                    nullable(fields[1]),
+                    nullable(fields[2]),
+                    nullable(fields[3]),
+                    orderPaid,
+                    updates
+                )
+                openOrderDetail(order.orderId)
             }.show()
     }
 
@@ -483,15 +453,6 @@ class RecordsController(
             .setNegativeButton(R.string.cancel, null)
             .setPositiveButton(R.string.delete) { _, _ -> repository.deleteOrder(orderId); showList() }
             .show()
-    }
-
-    private fun confirmDeleteItem(item: OrderItemRecord) {
-        AlertDialog.Builder(activity).setMessage(R.string.delete_item_confirm)
-            .setNegativeButton(R.string.cancel, null)
-            .setPositiveButton(R.string.delete) { _, _ ->
-                repository.deleteItem(item.itemId)
-                if (repository.getOrder(item.orderId) == null) showList() else openOrderDetail(item.orderId)
-            }.show()
     }
 
     private fun enterDetail(title: String) {
