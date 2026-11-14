@@ -115,6 +115,23 @@ class RecordsAndSettingsUiTests(unittest.TestCase):
         ):
             self.assertIn(call, controller)
 
+    def test_records_default_to_product_spec_groups_and_labeled_edit_fields(self) -> None:
+        controller = source("ui/RecordsController.kt")
+        repository = source("data/RecordsRepository.kt")
+        self.assertIn("private var mode = Mode.PRODUCTS", controller)
+        self.assertIn('labels = listOf("商品名称", "规格型号", "购买数量"', controller)
+        self.assertIn('"基础计价数量", "基础计价单位"', controller)
+        self.assertIn("GROUP BY p.product_id", repository)
+        self.assertIn("i.raw_specification", repository)
+        self.assertIn("comparison_quantity", repository)
+
+    def test_system_back_returns_from_record_detail_before_exiting(self) -> None:
+        activity = source("MainActivity.kt")
+        controller = source("ui/RecordsController.kt")
+        self.assertIn("onBackPressedDispatcher.addCallback", activity)
+        self.assertIn("recordsController.handleBack()", activity)
+        self.assertIn("fun handleBack(): Boolean", controller)
+
     def test_record_detail_routes_are_guarded_from_bad_local_data(self) -> None:
         controller = source("ui/RecordsController.kt")
         self.assertIn("private fun openOrderDetail", controller)

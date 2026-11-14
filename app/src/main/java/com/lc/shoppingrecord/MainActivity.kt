@@ -16,6 +16,7 @@ import android.widget.LinearLayout
 import android.widget.TextView
 import android.widget.Toast
 import androidx.activity.ComponentActivity
+import androidx.activity.OnBackPressedCallback
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
 import com.lc.shoppingrecord.ai.AiTaskRepository
@@ -53,6 +54,7 @@ class MainActivity : ComponentActivity() {
     private val ioExecutor = Executors.newSingleThreadExecutor()
     private var activeTaskId: String? = null
     private var confirmedDraftCount = 0
+    private var currentPage = PAGE_RECOGNIZE
 
     private val pickImages = registerForActivityResult(
         ActivityResultContracts.PickMultipleVisualMedia(MAX_IMAGES)
@@ -120,6 +122,18 @@ class MainActivity : ComponentActivity() {
             findViewById(R.id.navSettings)
         )
         navigation.forEachIndexed { index, item -> item.setOnClickListener { showPage(index) } }
+        onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
+            override fun handleOnBackPressed() {
+                when {
+                    currentPage == PAGE_RECORDS && recordsController.handleBack() -> Unit
+                    currentPage != PAGE_RECOGNIZE -> showPage(PAGE_RECOGNIZE)
+                    else -> {
+                        isEnabled = false
+                        onBackPressedDispatcher.onBackPressed()
+                    }
+                }
+            }
+        })
 
         selectedImageUris.addAll(
             savedInstanceState?.getStringArrayList(STATE_IMAGES).orEmpty().map(Uri::parse)
@@ -312,6 +326,7 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun showPage(index: Int) {
+        currentPage = index
         pages.forEachIndexed { pageIndex, page -> page.visibility = if (pageIndex == index) View.VISIBLE else View.GONE }
         navigation.forEachIndexed { navIndex, item -> item.isSelected = navIndex == index }
         if (index == PAGE_RECORDS) recordsController.refresh()

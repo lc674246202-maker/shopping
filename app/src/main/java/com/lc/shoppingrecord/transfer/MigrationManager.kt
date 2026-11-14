@@ -57,7 +57,7 @@ class MigrationManager(private val databaseHelper: ShoppingDatabaseHelper) {
         val manifest = JSONObject().apply {
             put("format_version", FORMAT_VERSION)
             put("exported_at", Instant.now().toString())
-            put("app_version", "0.1.0")
+            put("app_version", "0.2.0")
             put("counts", JSONObject().apply {
                 TABLE_FILES.forEach { (table, filename) ->
                     put(table, JSONArray(String(files.getValue(filename), Charsets.UTF_8)).length())
@@ -241,7 +241,7 @@ class MigrationManager(private val databaseHelper: ShoppingDatabaseHelper) {
         private val ALLOWED_FILES = TABLE_FILES.values.toSet() + "manifest.json"
         private val TABLE_COLUMNS = mapOf(
             "products" to setOf("product_id","standard_name","display_name","brand","category","preferred_price_mode","created_at","updated_at"),
-            "skus" to setOf("sku_id","product_id","spec_raw","measurement_type","base_unit","base_quantity_per_sale_unit","sale_unit","inner_unit","inner_count_per_sale_unit","spec_structure_json","spec_status","created_at","updated_at"),
+            "skus" to setOf("sku_id","product_id","spec_raw","measurement_type","base_unit","base_quantity_per_sale_unit","sale_unit","inner_unit","inner_count_per_sale_unit","comparison_quantity","comparison_unit","spec_structure_json","spec_status","created_at","updated_at"),
             "orders" to setOf("order_id","platform","external_order_no","store_name","order_date","paid_date","order_paid_cents","order_original_cents","discount_cents","shipping_cents","order_status","verification_status","note","created_at","updated_at"),
             "order_items" to setOf("item_id","order_id","product_id","sku_id","raw_product_name","is_name_truncated","raw_specification","specification_snapshot_json","sale_quantity","sale_unit","original_amount_cents","paid_amount_cents","price_source","verification_status","source_refs_json","created_at","updated_at")
         )

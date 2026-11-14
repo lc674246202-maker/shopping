@@ -29,7 +29,10 @@ class ShoppingDatabaseHelper(context: Context) : SQLiteOpenHelper(
     }
 
     override fun onUpgrade(db: SQLiteDatabase, oldVersion: Int, newVersion: Int) {
-        // Version 1 is the PRD V1.0 baseline. Future migrations must preserve history snapshots.
+        if (oldVersion < 2) {
+            db.execSQL("ALTER TABLE skus ADD COLUMN comparison_quantity TEXT")
+            db.execSQL("ALTER TABLE skus ADD COLUMN comparison_unit TEXT")
+        }
     }
 
     fun count(table: String): Int {
@@ -56,7 +59,7 @@ class ShoppingDatabaseHelper(context: Context) : SQLiteOpenHelper(
 
     companion object {
         private const val DATABASE_NAME = "shopping_record.db"
-        private const val DATABASE_VERSION = 1
+        private const val DATABASE_VERSION = 2
 
         private val ALLOWED_COUNT_TABLES = setOf("products", "orders", "order_items")
 
@@ -84,6 +87,8 @@ class ShoppingDatabaseHelper(context: Context) : SQLiteOpenHelper(
                 sale_unit TEXT,
                 inner_unit TEXT,
                 inner_count_per_sale_unit TEXT,
+                comparison_quantity TEXT,
+                comparison_unit TEXT,
                 spec_structure_json TEXT,
                 spec_status TEXT,
                 created_at TEXT NOT NULL,

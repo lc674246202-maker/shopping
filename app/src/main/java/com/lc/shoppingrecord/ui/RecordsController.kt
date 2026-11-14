@@ -25,7 +25,6 @@ import com.lc.shoppingrecord.model.OrderItemRecord
 import com.lc.shoppingrecord.model.OrderSummary
 import com.lc.shoppingrecord.model.PriceHistoryEntry
 import com.lc.shoppingrecord.model.ProductSummary
-import com.lc.shoppingrecord.model.SkuSummary
 import java.math.BigDecimal
 import java.math.RoundingMode
 import java.time.LocalDate
@@ -46,7 +45,7 @@ class RecordsController(
     private val platformFilter = activity.findViewById<Spinner>(R.id.recordsPlatformFilter)
     private val dateFilter = activity.findViewById<Spinner>(R.id.recordsDateFilter)
     private val recordsScroll = activity.findViewById<ScrollView>(R.id.pageRecords)
-    private var mode = Mode.ORDERS
+    private var mode = Mode.PRODUCTS
 
     init {
         activity.findViewById<View>(R.id.showOrdersButton).setOnClickListener {
@@ -107,6 +106,7 @@ class RecordsController(
     fun showList() {
         backButton.visibility = View.GONE
         listControls.visibility = View.VISIBLE
+        listContainer.visibility = View.VISIBLE
         detailContainer.visibility = View.GONE
         pageTitle.setText(R.string.records_title)
         refresh()
@@ -132,8 +132,9 @@ class RecordsController(
         products.forEach { product ->
             listContainer.addView(card().apply {
                 addView(title(product.displayName))
+                addView(body(product.specification ?: "规格待确认"))
                 addView(body(listOfNotNull(product.brand, product.category).joinToString(" · ").ifBlank { "未分类" }))
-                addView(body("${product.skuCount} 个规格 · ${product.purchaseCount} 次购买"))
+                addView(body("${product.purchaseCount} 次购买"))
                 isClickable = true
                 isFocusable = true
                 setOnClickListener { openProductDetail(product) }
@@ -194,9 +195,8 @@ class RecordsController(
 
     private fun openProductDetail(product: ProductSummary) {
         try {
-            val skus = repository.listSkus(product.productId)
-            val history = repository.priceHistory(product.productId)
-            showProductDetail(product, skus, history)
+            val history = repository.priceHistory(product)
+            showProductDetail(product, history)
         } catch (error: Exception) {
             showDetailError(error)
         }
@@ -204,12 +204,12 @@ class RecordsController(
 
     private fun showProductDetail(
         product: ProductSummary,
-        skus: List<SkuSummary>,
         history: List<PriceHistoryEntry>
     ) {
         enterDetail(activity.getString(R.string.product_detail))
         val header = card().apply {
             addView(title(product.displayName))
+            addView(body(product.specification ?: "规格待确认"))
             addView(body(listOfNotNull(product.brand, product.category).joinToString(" · ").ifBlank { "未分类" }))
             addView(actionRow(activity.getString(R.string.edit) to { editProduct(product) }))
         }
@@ -230,15 +230,6 @@ class RecordsController(
         modeRow.addView(standardButton, LinearLayout.LayoutParams(0, dp(48), 1f))
         modeRow.addView(packageButton, LinearLayout.LayoutParams(0, dp(48), 1f).apply { marginStart = dp(8) })
         controls.addView(modeRow)
-        val spinner = Spinner(activity).apply {
-            adapter = ArrayAdapter(
-                activity,
-                android.R.layout.simple_spinner_dropdown_item,
-                skus.map { it.specRaw ?: it.saleUnit ?: "未命名规格" }
-            )
-            visibility = View.GONE
-        }
-        controls.addView(spinner)
         detailContainer.addView(controls)
         val resultArea = LinearLayout(activity).apply { orientation = LinearLayout.VERTICAL }
         detailContainer.addView(resultArea)
@@ -247,9 +238,7 @@ class RecordsController(
             ?: if (history.any { it.standardPrice != null }) "standard" else "package"
         fun rerender() {
             try {
-                spinner.visibility = if (priceMode == "package" && skus.isNotEmpty()) View.VISIBLE else View.GONE
-                val selectedSku = skus.getOrNull(spinner.selectedItemPosition)?.skuId
-                renderHistory(resultArea, history, priceMode, selectedSku)
+                renderHistory(resultArea, history, priceMode)
                 runCatching { repository.rememberPriceMode(product.productId, priceMode) }
                     .onFailure { Log.w(TAG, "Unable to remember price display mode", it) }
             } catch (error: Exception) {
@@ -258,10 +247,6 @@ class RecordsController(
         }
         standardButton.setOnClickListener { priceMode = "standard"; rerender() }
         packageButton.setOnClickListener { priceMode = "package"; rerender() }
-        spinner.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
-            override fun onItemSelected(parent: AdapterView<*>?, view: View?, position: Int, id: Long) = rerender()
-            override fun onNothingSelected(parent: AdapterView<*>?) = Unit
-        }
         rerender()
         scrollToTop()
     }
@@ -269,12 +254,11 @@ class RecordsController(
     private fun renderHistory(
         target: LinearLayout,
         all: List<PriceHistoryEntry>,
-        priceMode: String,
-        selectedSku: String?
+        priceMode: String
     ) {
         target.removeAllViews()
         val candidates = if (priceMode == "package") {
-            all.filter { it.skuId == selectedSku && it.packagePrice != null }
+            all.filter { it.packagePrice != null }
         } else {
             val unit = all.firstNotNullOfOrNull { it.standardUnit }
             all.filter { it.standardPrice != null && it.standardUnit == unit }
@@ -304,11 +288,9 @@ class RecordsController(
 
     private fun editOrder(order: OrderDetail) {
         val form = form(
-            order.platform,
-            order.storeName,
-            order.externalOrderNo,
-            order.paidDate,
-            centsToYuan(order.orderPaidCents)
+            labels = listOf("平台", "店铺", "订单号", "付款日期", "整单实付金额（元）"),
+            values = listOf(order.platform, order.storeName, order.externalOrderNo, order.paidDate, centsToYuan(order.orderPaidCents)),
+            decimalIndexes = setOf(4)
         )
         AlertDialog.Builder(activity)
             .setTitle("编辑订单")
@@ -331,33 +313,51 @@ class RecordsController(
     }
 
     private fun editProduct(product: ProductSummary) {
-        val name = EditText(activity).apply { hint = "商品显示名称"; setText(product.displayName) }
-        val brand = EditText(activity).apply { hint = "品牌（可空）"; setText(product.brand.orEmpty()) }
-        val category = EditText(activity).apply { hint = "分类（可空）"; setText(product.category.orEmpty()) }
-        val container = LinearLayout(activity).apply {
-            orientation = LinearLayout.VERTICAL
-            setPadding(dp(20), 0, dp(20), 0)
-            addView(name); addView(brand); addView(category)
-        }
+        val form = form(
+            labels = listOf("商品名称", "品牌", "分类", "基础计价数量", "基础计价单位"),
+            values = listOf(
+                product.displayName,
+                product.brand,
+                product.category,
+                product.comparisonQuantity,
+                product.comparisonUnit
+            ),
+            decimalIndexes = setOf(3)
+        )
         AlertDialog.Builder(activity)
-            .setTitle("编辑商品档案")
-            .setView(container)
+            .setTitle("编辑商品与计价单位")
+            .setView(form.first)
             .setNegativeButton(R.string.cancel, null)
             .setPositiveButton("保存") { _, _ ->
-                val displayName = name.text.toString().trim()
-                if (displayName.isEmpty()) {
-                    Toast.makeText(activity, "商品名称不能为空", Toast.LENGTH_LONG).show()
+                val fields = form.second
+                val displayName = fields[0].text.toString().trim()
+                val comparisonQuantity = nullable(fields[3])
+                val comparisonUnit = nullable(fields[4])
+                val comparisonValid = (comparisonQuantity == null && comparisonUnit == null) ||
+                    (comparisonQuantity?.toBigDecimalOrNull()?.let { it > BigDecimal.ZERO } == true && comparisonUnit != null)
+                if (displayName.isEmpty() || !comparisonValid) {
+                    Toast.makeText(activity, "请填写商品名称；基础计价数量和单位需同时填写", Toast.LENGTH_LONG).show()
                 } else {
-                    repository.updateProduct(
-                        product.productId,
-                        displayName,
-                        brand.text.toString().trim().takeIf(String::isNotEmpty),
-                        category.text.toString().trim().takeIf(String::isNotEmpty)
-                    )
+                    try {
+                        repository.updateProduct(
+                            product.productId,
+                            product.specification,
+                            displayName,
+                            nullable(fields[1]),
+                            nullable(fields[2]),
+                            comparisonQuantity,
+                            comparisonUnit
+                        )
+                    } catch (_: IllegalArgumentException) {
+                        Toast.makeText(activity, "基础计价单位不受支持，请使用 g、kg、mL、L、抽、张、个等单位", Toast.LENGTH_LONG).show()
+                        return@setPositiveButton
+                    }
                     openProductDetail(product.copy(
                         displayName = displayName,
-                        brand = brand.text.toString().trim().takeIf(String::isNotEmpty),
-                        category = category.text.toString().trim().takeIf(String::isNotEmpty)
+                        brand = nullable(fields[1]),
+                        category = nullable(fields[2]),
+                        comparisonQuantity = comparisonQuantity,
+                        comparisonUnit = comparisonUnit
                     ))
                 }
             }.show()
@@ -365,11 +365,9 @@ class RecordsController(
 
     private fun editItem(item: OrderItemRecord) {
         val form = form(
-            item.rawProductName,
-            item.rawSpecification,
-            item.saleQuantity,
-            item.saleUnit,
-            centsToYuan(item.paidAmountCents)
+            labels = listOf("商品名称", "规格型号", "购买数量", "购买单位", "商品实付金额（元）"),
+            values = listOf(item.rawProductName, item.rawSpecification, item.saleQuantity, item.saleUnit, centsToYuan(item.paidAmountCents)),
+            decimalIndexes = setOf(2, 4)
         )
         AlertDialog.Builder(activity)
             .setTitle("编辑商品明细")
@@ -412,7 +410,7 @@ class RecordsController(
 
     private fun enterDetail(title: String) {
         listControls.visibility = View.GONE
-        listContainer.removeAllViews()
+        listContainer.visibility = View.GONE
         emptyContainer.visibility = View.GONE
         backButton.visibility = View.VISIBLE
         pageTitle.text = title
@@ -424,6 +422,7 @@ class RecordsController(
         Log.e(TAG, "Unable to display record details", error)
         backButton.visibility = View.GONE
         listControls.visibility = View.VISIBLE
+        listContainer.visibility = View.VISIBLE
         detailContainer.removeAllViews()
         detailContainer.visibility = View.GONE
         pageTitle.setText(R.string.records_title)
@@ -468,20 +467,36 @@ class RecordsController(
         }
     }
 
-    private fun form(vararg values: String?): Pair<LinearLayout, List<EditText>> {
-        val hints = listOf("名称/平台", "规格/店铺", "数量/订单号", "单位/付款日期", "实付金额（元）")
+    private fun form(
+        labels: List<String>,
+        values: List<String?>,
+        decimalIndexes: Set<Int> = emptySet()
+    ): Pair<LinearLayout, List<EditText>> {
+        require(labels.size == values.size)
         val fields = values.mapIndexed { index, value ->
             EditText(activity).apply {
-                hint = hints[index]
+                hint = "未填写"
                 setText(value.orEmpty())
-                if (index == 4) inputType = android.text.InputType.TYPE_CLASS_NUMBER or android.text.InputType.TYPE_NUMBER_FLAG_DECIMAL
+                if (index in decimalIndexes) inputType = android.text.InputType.TYPE_CLASS_NUMBER or android.text.InputType.TYPE_NUMBER_FLAG_DECIMAL
             }
         }
         return LinearLayout(activity).apply {
             orientation = LinearLayout.VERTICAL
             setPadding(dp(20), 0, dp(20), 0)
-            fields.forEach(::addView)
+            fields.forEachIndexed { index, field ->
+                addView(body(labels[index]).apply {
+                    setTextColor(activity.getColor(R.color.ink))
+                    setPadding(0, dp(10), 0, 0)
+                })
+                addView(field)
+            }
         } to fields
+    }
+
+    fun handleBack(): Boolean {
+        if (detailContainer.visibility != View.VISIBLE) return false
+        showList()
+        return true
     }
 
     private fun nullable(field: EditText) = field.text.toString().trim().takeIf(String::isNotEmpty)

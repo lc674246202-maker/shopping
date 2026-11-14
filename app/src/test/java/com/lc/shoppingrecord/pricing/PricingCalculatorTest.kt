@@ -69,6 +69,13 @@ class PricingCalculatorTest {
         assertEquals(PriceIssue.UNSUPPORTED_UNIT, result.issue)
     }
 
+    @Test
+    fun custom100gBasisNormalizesToPointOneKg() {
+        val result = MeasurementNormalizer.normalizeComparison(BigDecimal("100"), "g")
+        assertEquals("kg", result?.unit)
+        assertDecimal("0.1", result?.quantityPerSaleUnit)
+    }
+
     private fun calculate(
         content: String,
         contentUnit: String,

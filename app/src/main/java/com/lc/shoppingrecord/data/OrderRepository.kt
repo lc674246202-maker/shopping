@@ -151,14 +151,13 @@ class OrderRepository(private val databaseHelper: ShoppingDatabaseHelper) {
         val name = item.standardName?.takeIf(String::isNotBlank) ?: item.rawProductName
         database.rawQuery(
             """SELECT product_id FROM products
-               WHERE lower(COALESCE(standard_name,''))=lower(?)
-                  OR lower(COALESCE(display_name,''))=lower(?)
-               LIMIT 2""".trimIndent(),
+               WHERE lower(trim(COALESCE(standard_name,'')))=lower(trim(?))
+                  OR lower(trim(COALESCE(display_name,'')))=lower(trim(?))
+               ORDER BY created_at
+               LIMIT 1""".trimIndent(),
             arrayOf(name, name)
         ).use { cursor ->
-            if (!cursor.moveToFirst()) return null
-            val first = cursor.getString(0)
-            return if (cursor.moveToNext()) null else first
+            return if (cursor.moveToFirst()) cursor.getString(0) else null
         }
     }
 
@@ -197,7 +196,7 @@ class OrderRepository(private val databaseHelper: ShoppingDatabaseHelper) {
         val selection: String
         val args: Array<String>
         if (specification != null) {
-            selection = "product_id=? AND lower(COALESCE(spec_raw,''))=lower(?)"
+            selection = "product_id=? AND lower(trim(COALESCE(spec_raw,'')))=lower(trim(?))"
             args = arrayOf(productId, specification)
         } else if (item.baseUnit != null && item.baseQuantityPerSaleUnit != null && item.saleUnit != null) {
             selection = "product_id=? AND base_unit=? AND base_quantity_per_sale_unit=? AND sale_unit=?"
@@ -206,11 +205,9 @@ class OrderRepository(private val databaseHelper: ShoppingDatabaseHelper) {
             return null
         }
         database.query(
-            "skus", arrayOf("sku_id"), selection, args, null, null, null, "2"
+            "skus", arrayOf("sku_id"), selection, args, null, null, "1"
         ).use { cursor ->
-            if (!cursor.moveToFirst()) return null
-            val first = cursor.getString(0)
-            return if (cursor.moveToNext()) null else first
+            return if (cursor.moveToFirst()) cursor.getString(0) else null
         }
     }
 

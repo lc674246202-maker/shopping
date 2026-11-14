@@ -9,6 +9,7 @@ import com.lc.shoppingrecord.model.PriceHistoryEntry
 import com.lc.shoppingrecord.model.ProductSummary
 import com.lc.shoppingrecord.model.SaleSpecification
 import com.lc.shoppingrecord.model.SkuSummary
+import com.lc.shoppingrecord.pricing.MeasurementNormalizer
 import com.lc.shoppingrecord.pricing.PricingCalculator
 import org.json.JSONObject
 import java.math.BigDecimal
@@ -108,17 +109,22 @@ class RecordsRepository(private val databaseHelper: ShoppingDatabaseHelper) {
     fun listProducts(search: String = ""): List<ProductSummary> {
         val normalized = search.trim()
         val where = if (normalized.isEmpty()) "" else {
-            "WHERE p.display_name LIKE ? OR p.standard_name LIKE ? OR p.brand LIKE ? OR p.category LIKE ?"
+            """WHERE p.display_name LIKE ? OR p.standard_name LIKE ? OR p.brand LIKE ? OR
+                      p.category LIKE ? OR s.spec_raw LIKE ? OR i.raw_specification LIKE ?"""
         }
-        val args = if (normalized.isEmpty()) emptyArray() else Array(4) { "%$normalized%" }
+        val args = if (normalized.isEmpty()) emptyArray() else Array(6) { "%$normalized%" }
         val sql = """
             SELECT p.product_id, COALESCE(p.display_name,p.standard_name,'未命名商品'), p.brand,
-                   p.category, COUNT(DISTINCT s.sku_id), COUNT(DISTINCT i.item_id), p.preferred_price_mode
+                   p.category,
+                   COALESCE(NULLIF(TRIM(s.spec_raw),''),NULLIF(TRIM(i.raw_specification),''),''),
+                   MAX(i.sale_unit), COUNT(DISTINCT i.item_id), p.preferred_price_mode,
+                   MAX(s.comparison_quantity), MAX(s.comparison_unit)
             FROM products p
-            LEFT JOIN skus s ON s.product_id=p.product_id
-            LEFT JOIN order_items i ON i.product_id=p.product_id
+            JOIN order_items i ON i.product_id=p.product_id
+            LEFT JOIN skus s ON s.sku_id=i.sku_id
             $where
-            GROUP BY p.product_id
+            GROUP BY p.product_id,
+                     LOWER(COALESCE(NULLIF(TRIM(s.spec_raw),''),NULLIF(TRIM(i.raw_specification),''),''))
             ORDER BY MAX(i.created_at) DESC, p.updated_at DESC
             LIMIT 200
         """.trimIndent()
@@ -131,9 +137,12 @@ class RecordsRepository(private val databaseHelper: ShoppingDatabaseHelper) {
                             displayName = cursor.stringOrNull(1)?.takeIf(String::isNotBlank) ?: "未命名商品",
                             brand = cursor.stringOrNull(2),
                             category = cursor.stringOrNull(3),
-                            skuCount = cursor.getInt(4),
-                            purchaseCount = cursor.getInt(5),
-                            preferredPriceMode = cursor.stringOrNull(6)
+                            specification = cursor.stringOrNull(4)?.takeIf(String::isNotBlank),
+                            saleUnit = cursor.stringOrNull(5),
+                            purchaseCount = cursor.getInt(6),
+                            preferredPriceMode = cursor.stringOrNull(7),
+                            comparisonQuantity = cursor.stringOrNull(8),
+                            comparisonUnit = cursor.stringOrNull(9)
                         )
                     )
                 }
@@ -157,18 +166,30 @@ class RecordsRepository(private val databaseHelper: ShoppingDatabaseHelper) {
         }
     }
 
-    fun priceHistory(productId: String): List<PriceHistoryEntry> {
+    fun priceHistory(product: ProductSummary): List<PriceHistoryEntry> {
         val sql = """
             SELECT i.item_id,i.sku_id,COALESCE(o.paid_date,o.order_date),o.platform,o.store_name,
                    i.raw_specification,i.sale_quantity,i.sale_unit,i.paid_amount_cents,
                    i.specification_snapshot_json
             FROM order_items i JOIN orders o ON o.order_id=i.order_id
+            LEFT JOIN skus s ON s.sku_id=i.sku_id
             WHERE i.product_id=? AND i.verification_status='confirmed'
               AND i.paid_amount_cents IS NOT NULL AND i.sale_quantity IS NOT NULL
+              AND LOWER(COALESCE(NULLIF(TRIM(s.spec_raw),''),NULLIF(TRIM(i.raw_specification),''),''))
+                  = LOWER(TRIM(?))
             ORDER BY CASE WHEN COALESCE(o.paid_date,o.order_date) IS NULL THEN 1 ELSE 0 END,
                      COALESCE(o.paid_date,o.order_date) DESC, i.created_at DESC
         """.trimIndent()
-        return databaseHelper.readableDatabase.rawQuery(sql, arrayOf(productId)).use { cursor ->
+        val comparison = product.comparisonQuantity?.toBigDecimalOrNull()?.let { quantity ->
+            product.comparisonUnit?.let { unit -> MeasurementNormalizer.normalizeComparison(quantity, unit) }
+        }
+        val comparisonLabel = if (comparison != null) {
+            "${product.comparisonQuantity!!.toBigDecimal().stripTrailingZeros().toPlainString()}${product.comparisonUnit}"
+        } else null
+        return databaseHelper.readableDatabase.rawQuery(
+            sql,
+            arrayOf(product.productId, product.specification.orEmpty())
+        ).use { cursor ->
             buildList {
                 while (cursor.moveToNext()) {
                     val quantity = cursor.getString(6).toBigDecimalOrNull()
@@ -176,6 +197,13 @@ class RecordsRepository(private val databaseHelper: ShoppingDatabaseHelper) {
                     if (quantity == null || quantity <= BigDecimal.ZERO || paid == null) continue
                     val specification = parseSpecification(cursor.stringOrNull(9), cursor.stringOrNull(7))
                     val price = PricingCalculator.calculate(paid, quantity, specification)
+                    val rebasedPrice = if (
+                        comparison != null && price.standardPrice != null &&
+                        comparison.unit == price.standardUnit
+                    ) price.standardPrice.multiply(comparison.quantityPerSaleUnit) else price.standardPrice
+                    val rebasedUnit = if (rebasedPrice != null && comparisonLabel != null &&
+                        comparison?.unit == price.standardUnit
+                    ) comparisonLabel else price.standardUnit
                     add(
                         PriceHistoryEntry(
                             itemId = cursor.getString(0),
@@ -189,8 +217,8 @@ class RecordsRepository(private val databaseHelper: ShoppingDatabaseHelper) {
                             paidAmountCents = paid,
                             packagePrice = price.packagePrice,
                             packageUnit = price.packageUnit,
-                            standardPrice = price.standardPrice,
-                            standardUnit = price.standardUnit
+                            standardPrice = rebasedPrice,
+                            standardUnit = rebasedUnit
                         )
                     )
                 }
@@ -213,22 +241,46 @@ class RecordsRepository(private val databaseHelper: ShoppingDatabaseHelper) {
 
     fun updateProduct(
         productId: String,
+        specification: String?,
         displayName: String,
         brand: String?,
-        category: String?
+        category: String?,
+        comparisonQuantity: String?,
+        comparisonUnit: String?
     ): Boolean {
         require(displayName.isNotBlank())
-        return databaseHelper.writableDatabase.update(
+        require((comparisonQuantity == null) == (comparisonUnit == null))
+        if (comparisonQuantity != null && comparisonUnit != null) {
+            require(
+                comparisonQuantity.toBigDecimalOrNull()?.let {
+                    MeasurementNormalizer.normalizeComparison(it, comparisonUnit)
+                } != null
+            )
+        }
+        val database = databaseHelper.writableDatabase
+        val now = Instant.now().toString()
+        val changed = database.update(
             "products",
             ContentValues().apply {
                 put("display_name", displayName)
                 put("brand", brand)
                 put("category", category)
-                put("updated_at", Instant.now().toString())
+                put("updated_at", now)
             },
             "product_id=?",
             arrayOf(productId)
         ) == 1
+        database.update(
+            "skus",
+            ContentValues().apply {
+                put("comparison_quantity", comparisonQuantity)
+                put("comparison_unit", comparisonUnit)
+                put("updated_at", now)
+            },
+            "product_id=? AND LOWER(TRIM(COALESCE(spec_raw,'')))=LOWER(TRIM(?))",
+            arrayOf(productId, specification.orEmpty())
+        )
+        return changed
     }
 
     fun deleteOrder(orderId: String): Boolean = databaseHelper.writableDatabase.delete(

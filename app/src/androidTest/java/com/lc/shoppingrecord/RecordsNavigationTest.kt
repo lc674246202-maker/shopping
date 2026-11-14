@@ -64,8 +64,9 @@ class RecordsNavigationTest {
                 list.getChildAt(0).performClick()
                 assertEquals(View.VISIBLE, activity.findViewById<View>(R.id.recordDetailContainer).visibility)
 
-                activity.findViewById<View>(R.id.recordsBackButton).performClick()
-                activity.findViewById<View>(R.id.showProductsButton).performClick()
+                activity.onBackPressedDispatcher.onBackPressed()
+                assertEquals(View.GONE, activity.findViewById<View>(R.id.recordDetailContainer).visibility)
+                activity.findViewById<View>(R.id.showOrdersButton).performClick()
                 assertEquals(1, list.childCount)
                 list.getChildAt(0).performClick()
                 assertEquals(View.VISIBLE, activity.findViewById<View>(R.id.recordDetailContainer).visibility)

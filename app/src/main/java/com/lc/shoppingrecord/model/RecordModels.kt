@@ -46,9 +46,12 @@ data class ProductSummary(
     val displayName: String,
     val brand: String?,
     val category: String?,
-    val skuCount: Int,
+    val specification: String?,
+    val saleUnit: String?,
     val purchaseCount: Int,
-    val preferredPriceMode: String?
+    val preferredPriceMode: String?,
+    val comparisonQuantity: String?,
+    val comparisonUnit: String?
 )
 
 data class SkuSummary(

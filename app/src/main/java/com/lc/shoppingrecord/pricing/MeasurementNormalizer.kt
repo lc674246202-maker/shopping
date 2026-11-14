@@ -30,4 +30,16 @@ object MeasurementNormalizer {
             }
         }
     }
+
+    fun normalizeComparison(quantity: BigDecimal, unit: String): NormalizedMeasure? {
+        if (quantity <= BigDecimal.ZERO) return null
+        return normalize(
+            SaleSpecification(
+                contentPerInner = quantity,
+                contentUnit = unit,
+                innerCountPerSaleUnit = BigDecimal.ONE,
+                saleUnit = unit
+            )
+        )
+    }
 }
