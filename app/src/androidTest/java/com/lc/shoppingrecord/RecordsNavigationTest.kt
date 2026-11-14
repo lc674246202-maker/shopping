@@ -26,13 +26,22 @@ class RecordsNavigationTest {
 
     @Test
     fun missingPaidAmountsStillOpenOrderAndProductDetails() {
+        assertOrderAndProductDetailsOpen(orderPaidCents = null, itemPaidCents = null)
+    }
+
+    @Test
+    fun knownPaidAmountsOpenOrderAndProductDetails() {
+        assertOrderAndProductDetailsOpen(orderPaidCents = 4_320, itemPaidCents = 4_320)
+    }
+
+    private fun assertOrderAndProductDetailsOpen(orderPaidCents: Long?, itemPaidCents: Long?) {
         ActivityScenario.launch(MainActivity::class.java).use { scenario ->
             scenario.onActivity { activity ->
                 val repository = OrderRepository(ShoppingDatabaseHelper(activity.applicationContext))
                 val result = repository.saveConfirmedOrder(
                     ConfirmedOrderDraft(
                         platform = "京东",
-                        orderPaidCents = null,
+                        orderPaidCents = orderPaidCents,
                         items = listOf(
                             ConfirmedOrderItemDraft(
                                 rawProductName = "测试牛奶",
@@ -42,7 +51,7 @@ class RecordsNavigationTest {
                                 saleQuantity = "1",
                                 saleUnit = "箱",
                                 innerCountPerSaleUnit = "24",
-                                paidAmountCents = null
+                                paidAmountCents = itemPaidCents
                             )
                         )
                     )
