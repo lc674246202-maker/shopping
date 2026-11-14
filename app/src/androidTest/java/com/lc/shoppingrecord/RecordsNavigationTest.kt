@@ -1,11 +1,14 @@
 package com.lc.shoppingrecord
 
 import android.view.View
+import android.widget.AutoCompleteTextView
+import android.widget.EditText
 import android.widget.LinearLayout
 import androidx.test.core.app.ActivityScenario
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.lc.shoppingrecord.data.OrderRepository
+import com.lc.shoppingrecord.data.RecordsRepository
 import com.lc.shoppingrecord.data.ShoppingDatabaseHelper
 import com.lc.shoppingrecord.model.ConfirmedOrderDraft
 import com.lc.shoppingrecord.model.ConfirmedOrderItemDraft
@@ -32,6 +35,86 @@ class RecordsNavigationTest {
     @Test
     fun knownPaidAmountsOpenOrderAndProductDetails() {
         assertOrderAndProductDetailsOpen(orderPaidCents = 4_320, itemPaidCents = 4_320)
+    }
+
+    @Test
+    fun manualEntryPrefillsFromMostRecentMatchingProduct() {
+        ActivityScenario.launch(MainActivity::class.java).use { scenario ->
+            scenario.onActivity { activity ->
+                val database = ShoppingDatabaseHelper(activity.applicationContext)
+                OrderRepository(database).saveConfirmedOrder(
+                    ConfirmedOrderDraft(
+                        platform = "京东",
+                        items = listOf(
+                            ConfirmedOrderItemDraft(
+                                rawProductName = "测试牛奶",
+                                rawSpecification = "250mL×24盒",
+                                contentPerInner = "250",
+                                contentUnit = "mL",
+                                saleQuantity = "1",
+                                saleUnit = "箱",
+                                innerCountPerSaleUnit = "24",
+                                paidAmountCents = 4_320
+                            )
+                        )
+                    )
+                )
+
+                activity.findViewById<View>(R.id.manualEntryButton).performClick()
+                activity.findViewById<AutoCompleteTextView>(R.id.itemProductName).setText("测试牛奶")
+                assertEquals("250mL×24盒", activity.findViewById<EditText>(R.id.itemRawSpecification).text.toString())
+                assertEquals("1", activity.findViewById<EditText>(R.id.itemPurchaseQuantity).text.toString())
+                assertEquals("箱", activity.findViewById<EditText>(R.id.itemSaleUnit).text.toString())
+                assertEquals("43.20", activity.findViewById<EditText>(R.id.itemPaidAmount).text.toString())
+            }
+        }
+    }
+
+    @Test
+    fun sameNameAndSpecificationShareOneProductHistoryGroup() {
+        ActivityScenario.launch(MainActivity::class.java).use { scenario ->
+            scenario.onActivity { activity ->
+                val database = ShoppingDatabaseHelper(activity.applicationContext)
+                val orders = OrderRepository(database)
+                repeat(2) { index ->
+                    orders.saveConfirmedOrder(
+                        ConfirmedOrderDraft(
+                            platform = if (index == 0) "京东" else "淘宝",
+                            items = listOf(
+                                ConfirmedOrderItemDraft(
+                                    rawProductName = "测试牛奶",
+                                    rawSpecification = "250mL×24盒",
+                                    contentPerInner = "250",
+                                    contentUnit = "mL",
+                                    saleQuantity = "1",
+                                    saleUnit = "箱",
+                                    innerCountPerSaleUnit = "24",
+                                    paidAmountCents = if (index == 0) 4_320 else 4_800
+                                )
+                            )
+                        )
+                    )
+                }
+                val records = RecordsRepository(database)
+                val groups = records.listProducts()
+                assertEquals(1, groups.size)
+                assertEquals(2, groups.single().purchaseCount)
+                val group = groups.single()
+                records.updateProduct(
+                    group.productId,
+                    group.specification,
+                    group.displayName,
+                    group.brand,
+                    group.category,
+                    "100",
+                    "mL"
+                )
+                val updatedGroup = records.listProducts().single()
+                val history = records.priceHistory(updatedGroup)
+                assertEquals(2, history.size)
+                assertEquals("100mL", history.first().standardUnit)
+            }
+        }
     }
 
     private fun assertOrderAndProductDetailsOpen(orderPaidCents: Long?, itemPaidCents: Long?) {
