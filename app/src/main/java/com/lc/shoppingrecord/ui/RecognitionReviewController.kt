@@ -75,8 +75,8 @@ class RecognitionReviewController(
         }
         resultContainer.visibility = View.VISIBLE
         updateReconciliation()
-        activity.findViewById<ScrollView>(R.id.recognizeScroll).post {
-            activity.findViewById<ScrollView>(R.id.recognizeScroll).fullScroll(View.FOCUS_UP)
+        activity.findViewById<ScrollView>(R.id.pageRecognize).post {
+            activity.findViewById<ScrollView>(R.id.pageRecognize).fullScroll(View.FOCUS_UP)
         }
     }
 
