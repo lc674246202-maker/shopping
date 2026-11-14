@@ -45,6 +45,7 @@ class RecordsController(
     private val filterRow = activity.findViewById<View>(R.id.recordsFilterRow)
     private val platformFilter = activity.findViewById<Spinner>(R.id.recordsPlatformFilter)
     private val dateFilter = activity.findViewById<Spinner>(R.id.recordsDateFilter)
+    private val recordsScroll = activity.findViewById<ScrollView>(R.id.pageRecords)
     private var mode = Mode.ORDERS
 
     init {
@@ -490,7 +491,7 @@ class RecordsController(
         ?.toBigDecimalOrNull()?.movePointRight(2)?.longValueExact()
     private fun formatPrice(value: BigDecimal): String = value.setScale(if (value.abs() < BigDecimal("0.01")) 4 else 2, RoundingMode.HALF_UP).toPlainString()
     private fun dp(value: Int) = (value * activity.resources.displayMetrics.density).toInt()
-    private fun scrollToTop() = activity.findViewById<ScrollView>(R.id.recordsScroll).post { activity.findViewById<ScrollView>(R.id.recordsScroll).fullScroll(View.FOCUS_UP) }
+    private fun scrollToTop() = recordsScroll.post { recordsScroll.fullScroll(View.FOCUS_UP) }
 
     private enum class Mode { ORDERS, PRODUCTS }
 

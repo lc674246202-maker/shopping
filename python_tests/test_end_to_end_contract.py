@@ -122,6 +122,8 @@ class RecordsAndSettingsUiTests(unittest.TestCase):
         self.assertGreaterEqual(controller.count("showDetailError(error)"), 3)
         self.assertIn('Log.e(TAG, "Unable to display record details", error)', controller)
         self.assertIn("runCatching { repository.rememberPriceMode", controller)
+        self.assertIn("findViewById<ScrollView>(R.id.pageRecords)", controller)
+        self.assertNotIn("findViewById<ScrollView>(R.id.recordsScroll)", controller)
 
     def test_settings_has_key_transfer_preview_and_cleanup_controls(self) -> None:
         settings_ids = ids("view_settings.xml")
